@@ -406,7 +406,7 @@ elif st.session_state.step == "select_daily":
                                 st.rerun()
 
     # --- SAĞ SÜTUN (ANA EKRAN) ---
-    st.title("⚡ Seri İş Seçim Ekranı")
+    st.title("İş Seçimi")
     progress = len(st.session_state.selected_jobs) / len(dates)
     st.progress(progress)
     st.subheader(f"Tarih: {current_date} ({current_idx + 1} / {len(dates)})")
@@ -464,7 +464,7 @@ elif st.session_state.step == "select_samples":
     selected_df = selected_df.sort_values('temp_sort_date')
     
     st.write(f"Toplam **{len(selected_df)}** gün/iş kronolojik olarak filtrelendi.")
-    st.info("Otoriteye örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
+    st.info("Örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
     
     selected_df['Sarı Boya (Örnek İş)'] = False
     

@@ -292,7 +292,7 @@ if st.session_state.step == "upload":
 # ----------------- ADIM 2: ÖN FİLTRELEME VE TEMİZLİK (YENİ EKRAN) -----------------
 elif st.session_state.step == "filter_data":
     st.title("🧹 Gereksiz İşleri Ayıklama (Filtreleme)")
-    st.write("Listeden tamamen çıkarılması gereken, çok kısa süren veya belirli kriterlere (Yetki, ATA, Check Type) sahip olan işleri seçerek Excel tablosundan kökten silebilirsiniz.")
+    st.write("Listeden kısa süreli veya Yetki, ATA, Check Type'a göre filtrelenen gereksiz olan işleri seçerek Excel tablosundan silebilirsiniz.")
 
     df = st.session_state.raw_data
 
@@ -304,7 +304,7 @@ elif st.session_state.step == "filter_data":
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("### 🚫 Silinecek Kategoriler")
-        sel_privs = st.multiselect("Silinecek 'Privilege Used' Yetkilerini Seçin:", options=privileges)
+        sel_privs = st.multiselect("Silinecek Yetkileri Seçin:", options=privileges)
         sel_atas = st.multiselect("Silinecek 'ATA Chapter' Bölümlerini Seçin:", options=atas)
         sel_checks = st.multiselect("Silinecek 'Check Type' Türlerini Seçin:", options=check_types)
 

@@ -23,8 +23,8 @@ def get_base64_image(file_path):
     return ""
 
 # Görselleri klasörden oku
-plane_base64 = get_base64_image("plane.jpg")
-hangar_base64 = get_base64_image("background.jpg")
+plane_base64 = get_base64_image("pngegg.jpg")
+hangar_base64 = get_base64_image("2-c-Turkish-Technic-scaled.jpg")
 
 # CSS Temalandırma
 bg_css = ""
@@ -162,17 +162,25 @@ def load_excel_data(file_bytes):
     sheet = wb.active
     
     data = []
+    last_valid_date = ""  # Akıllı Tarih Hafızası
+    
     # 1. ve 2. satırlar başlık, veri 3'ten başlar
     for r_idx in range(3, sheet.max_row + 1):
         row_vals = [sheet.cell(row=r_idx, column=c_idx).value for c_idx in range(1, sheet.max_column + 1)]
-        if any(row_vals):
-            date_val = safe_get(row_vals, 1)
-            standard_date_str = ""
-            if date_val:
-                if hasattr(date_val, 'strftime'): 
-                    standard_date_str = date_val.strftime('%d.%m.%Y')
-                else: 
-                    date_str = str(date_val).strip()
+        
+        # Tamamen boş satırları atla
+        if not any(row_vals):
+            continue
+            
+        date_val = safe_get(row_vals, 1)
+        standard_date_str = ""
+        
+        if date_val:
+            if hasattr(date_val, 'strftime'): 
+                standard_date_str = date_val.strftime('%d.%m.%Y')
+            else: 
+                date_str = str(date_val).strip()
+                if date_str:
                     parsed_dt = None
                     for fmt in ('%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
                         try:
@@ -184,47 +192,53 @@ def load_excel_data(file_bytes):
                         standard_date_str = parsed_dt.strftime('%d.%m.%Y')
                     else:
                         standard_date_str = date_str
+        
+        # EĞER TARİH HÜCRESİ BOŞ BIRAKILMIŞSA (Aynı günün işleri için), BİR ÖNCEKİ TARİHİ OTOMATİK KULLAN
+        if standard_date_str:
+            last_valid_date = standard_date_str
+        else:
+            standard_date_str = last_valid_date
             
-            # --- %100 KUSURSUZ YENİ SÜTUN EŞLEŞTİRMELERİ ---
-            privilege_val = safe_get(row_vals, 5)      # F Sütunu: 5. Privilege Used (Indis 5)
-            ata_val = safe_get(row_vals, 20)            # U Sütunu: 10. ATA Chapter (Indis 20)
-            check_type_val = safe_get(row_vals, 21)     # V Sütunu: Check Type (Indis 21)
-            description_val = safe_get(row_vals, 22)    # W Sütunu: Description (Indis 22)
-            duration_val = safe_get(row_vals, 23)       # X Sütunu: 12. Time Duration (Indis 23)
-            ref_val = safe_get(row_vals, 24)            # Y Sütunu: 13. Maintenance Record Reference (Indis 24)
-            wo_val = safe_get(row_vals, 25)             # Z Sütunu: W/O Number (Indis 25)
+        # --- KUSURSUZ YENİ SÜTUN EŞLEŞTİRMELERİ ---
+        privilege_val = safe_get(row_vals, 5)      # F Sütunu: 5. Privilege Used (Indis 5)
+        ata_val = safe_get(row_vals, 20)            # U Sütunu: 10. ATA Chapter (Indis 20)
+        check_type_val = safe_get(row_vals, 21)     # V Sütunu: Check Type (Indis 21)
+        description_val = safe_get(row_vals, 22)    # W Sütunu: Description (Indis 22)
+        duration_val = safe_get(row_vals, 23)       # X Sütunu: 12. Time Duration (Indis 23)
+        ref_val = safe_get(row_vals, 24)            # Y Sütunu: 13. Maintenance Record Reference (Indis 24)
+        wo_val = safe_get(row_vals, 25)             # Z Sütunu: W/O Number (Indis 25)
 
-            # Dakika hesabı için duration_val kontrolü
-            duration_mins = 0
-            if duration_val:
-                if isinstance(duration_val, (datetime.time, datetime.datetime)):
-                    duration_mins = duration_val.hour * 60 + duration_val.minute
+        # Dakika hesabı için duration_val kontrolü
+        duration_mins = 0
+        if duration_val:
+            if isinstance(duration_val, (datetime.time, datetime.datetime)):
+                duration_mins = duration_val.hour * 60 + duration_val.minute
+            else:
+                d_str = str(duration_val).strip()
+                if ':' in d_str:
+                    parts = d_str.split(':')
+                    try: duration_mins = int(parts[0]) * 60 + int(parts[1])
+                    except: pass
                 else:
-                    d_str = str(duration_val).strip()
-                    if ':' in d_str:
-                        parts = d_str.split(':')
-                        try: duration_mins = int(parts[0]) * 60 + int(parts[1])
-                        except: pass
-                    else:
-                        try: duration_mins = int(d_str)
-                        except: pass
+                    try: duration_mins = int(d_str)
+                    except: pass
 
-            data.append({
-                "row_idx": r_idx,
-                "no": safe_get(row_vals, 0),
-                "date": standard_date_str,
-                "location": safe_get(row_vals, 2),
-                "fleet": safe_get(row_vals, 3),
-                "privilege": str(privilege_val).strip() if privilege_val else "",
-                "reg": safe_get(row_vals, 7),
-                "ata": str(ata_val).strip() if ata_val else "",
-                "check_type": str(check_type_val).strip() if check_type_val else "",
-                "description": description_val,
-                "duration": duration_val,
-                "duration_mins": duration_mins,
-                "ref": ref_val,
-                "wo": wo_val
-            })
+        data.append({
+            "row_idx": r_idx,
+            "no": safe_get(row_vals, 0),
+            "date": standard_date_str,
+            "location": safe_get(row_vals, 2),
+            "fleet": safe_get(row_vals, 3),
+            "privilege": str(privilege_val).strip() if privilege_val else "",
+            "reg": safe_get(row_vals, 7),
+            "ata": str(ata_val).strip() if ata_val else "",
+            "check_type": str(check_type_val).strip() if check_type_val else "",
+            "description": description_val,
+            "duration": duration_val,
+            "duration_mins": duration_mins,
+            "ref": ref_val,
+            "wo": wo_val
+        })
     
     df = pd.DataFrame(data)
     df['date'] = df['date'].astype(str).str.strip()
@@ -233,6 +247,7 @@ def load_excel_data(file_bytes):
 def recalculate_dates_and_months(df):
     parsed_dates = []
     for d in df['date'].unique():
+        if not d: continue
         try:
             dt = pd.to_datetime(d, format='%d.%m.%Y')
             parsed_dates.append((dt, d))
@@ -290,7 +305,6 @@ if st.session_state.step == "upload":
             st.session_state.original_filename = uploaded_file.name
             st.session_state.raw_data = df
             
-            # Filtreleme ekranına yönlendir
             st.session_state.step = "filter_data"
             st.rerun()
         except Exception as e:
@@ -303,7 +317,6 @@ elif st.session_state.step == "filter_data":
 
     df = st.session_state.raw_data
 
-    # Boş olmayan benzersiz değerleri topla
     privileges = sorted([str(p) for p in df['privilege'].unique() if pd.notna(p) and str(p).strip()])
     atas = sorted([str(a) for a in df['ata'].unique() if pd.notna(a) and str(a).strip()])
     check_types = sorted([str(c) for c in df['check_type'].unique() if pd.notna(c) and str(c).strip()])
@@ -320,7 +333,6 @@ elif st.session_state.step == "filter_data":
         st.write("Süresi girilen dakikadan **daha az olan** tüm işler silinecektir.")
         min_minutes = st.number_input("Maksimum Süre Sınırı (Dakika) - Örn: 30:", min_value=0, max_value=600, value=0, step=15)
 
-    # Silinecekleri Maskeleme
     mask = df['privilege'].isin(sel_privs) | df['ata'].isin(sel_atas) | df['check_type'].isin(sel_checks)
     if min_minutes > 0:
         mask = mask | (df['duration_mins'] < min_minutes)
@@ -332,7 +344,6 @@ elif st.session_state.step == "filter_data":
         st.error(f"⚠️ DİKKAT: Seçimlerinize göre toplam **{len(to_delete)} adet iş** Excel listesinden ve sistemden kalıcı olarak SİLİNECEKTİR.")
         st.markdown("**Silinecek İşlerin Ön İzlemesi (Süreler Dahil):**")
         
-        # Kırmızı Stil Uygulaması
         def color_red(val):
             return 'color: #ff4b4b; background-color: #fee2e2;'
             
@@ -389,6 +400,7 @@ elif st.session_state.step == "choose_mode":
         st.write("**Otomatik ilk satırı seçer diğerlerini siler.**")
         st.write("Aynı günde sadece 1 iş seçimi yapar. Kalan günlerdeki ilk işi otomatik tutar, geri kalanları siler ve sizi doğrudan Sarı Boyama ekranına yönlendirir.")
         if st.button("Otomatik Seçimle İlerle", use_container_width=True, type="primary"):
+            st.session_state.selected_jobs = {} # Seçimleri Temizle
             for date in st.session_state.unique_dates:
                 daily_jobs = st.session_state.raw_data[st.session_state.raw_data['date'] == date]
                 first_row_idx = daily_jobs.iloc[0]['row_idx']
@@ -402,6 +414,7 @@ elif st.session_state.step == "choose_mode":
         st.write("**Tek tek elle seçerek devam edilir.**")
         st.write("Tüm günler için o güne ait işler listelenir. Hangi işin tabloda kalacağına okuyarak bizzat siz karar verirsiniz.")
         if st.button("Manuel Seçime Başla", use_container_width=True):
+            st.session_state.selected_jobs = {} # Eski hafızayı tamamen temizle!
             st.session_state.current_month_idx = 0
             st.session_state.step = "select_daily"
             st.rerun()
@@ -575,7 +588,7 @@ elif st.session_state.step == "select_daily":
             daily_jobs = df[df['date'] == d_str]
             options = {}
             for _, row in daily_jobs.iterrows():
-                # DÜZELTİLMİŞ ETİKET YAPISI (Veriler artık tamamen doğru kolonlardan geliyor!)
+                # Benzersiz etiket yapısı eklendi
                 label = f"W/O: {row['wo']} | Ref: {row['ref']} | Süre: {row['duration']} | Tanım: {row['description']}"
                 options[row['row_idx']] = label
                 

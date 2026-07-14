@@ -230,7 +230,7 @@ def generate_output_excel(original_bytes, selected_row_indices, yellow_row_indic
 # ----------------- ADIM 1: DOSYA YÜKLEME -----------------
 if st.session_state.step == "upload":
     st.title("✈️ Logbook Düzenleme Otomasyonu")
-    st.subheader("Orijinal Excel (.xlsx) Dosyanızı Yükleyin")
+    st.subheader("Excel (.xlsx) Dosyanızı Yükleyin")
     
     if not hangar_base64:
         st.warning("İpucu: Arka planın hangar resmi olması için '2-c-Turkish-Technic-scaled.jpg' dosyasını bu proje klasörüne kopyalayın.")

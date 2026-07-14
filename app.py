@@ -6,6 +6,7 @@ import io
 import os
 import base64
 import streamlit.components.v1 as components
+from collections import defaultdict
 
 # Sayfa Yapılandırması
 st.set_page_config(page_title="Hızlı Logbook Otomasyonu", layout="wide")
@@ -36,7 +37,7 @@ if hangar_base64:
         background-attachment: fixed;
     }}
     [data-testid="stAppViewContainer"] {{
-        background-color: rgba(15, 23, 42, 0.2) !important; /* Karartma çok hafifletildi, arka plan net */
+        background-color: rgba(15, 23, 42, 0.2) !important; /* Karartma çok hafifletildi, arka plan cam gibi net */
         backdrop-filter: none !important; /* Blur tamamen kaldırıldı */
         -webkit-backdrop-filter: none !important;
     }}
@@ -61,11 +62,13 @@ st.markdown(f"""
         margin-bottom: 4vh !important;
     }}
     
+    /* 2. ANA ALANDAKİ TÜM YAZILARI KESKİN SİYAH/KOYU GRİ YAPMA */
     h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown, [data-testid="stWidgetLabel"] p {{
         color: #1e293b !important;
         text-shadow: none !important;
     }}
     
+    /* 3. SOLDALİ TAB (SIDEBAR) BEYAZ ARKA PLAN VE SİYAH YAZILAR */
     [data-testid="stSidebar"] {{
         background-color: rgba(255, 255, 255, 0.98) !important;
         border-right: 1px solid rgba(0,0,0,0.1);
@@ -74,7 +77,8 @@ st.markdown(f"""
         color: #0f172a !important;
         text-shadow: none !important;
     }}
-
+    
+    /* Sidebar içindeki butonlar için soft gri zemin */
     [data-testid="stSidebar"] button {{
         background-color: #f1f5f9 !important;
         color: #0f172a !important;
@@ -85,6 +89,7 @@ st.markdown(f"""
         border-color: #94a3b8 !important;
     }}
     
+    /* 4. SEÇENEK SEÇİM EKRANINDAKİ (CHOOSE MODE) KUTUCUKLARIN BEYAZ VE BELİRGİN YAPILMASI */
     div[data-testid="column"] {{
         background-color: #ffffff !important;
         padding: 2.5rem !important;
@@ -93,7 +98,7 @@ st.markdown(f"""
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
     }}
     
-
+    /* Radyo butonu seçenek metinleri */
     .stRadio [data-testid="stMarkdownContainer"] {{
         font-size: 16px !important;
         font-weight: 500;
@@ -148,7 +153,7 @@ if 'original_file_bytes' not in st.session_state:
 if 'original_filename' not in st.session_state:
     st.session_state.original_filename = "Logbook_Raporu.xlsx"
 
-# Excel Verisini Yükleme Fonksiyonu
+# Excel Verisini Yükleme Fonksiyonu (Standartlaştırılmış Tarih Formatı ile)
 def load_excel_data(file_bytes):
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
     sheet = wb.active
@@ -158,10 +163,31 @@ def load_excel_data(file_bytes):
     for r_idx in range(3, sheet.max_row + 1):
         row_vals = [sheet.cell(row=r_idx, column=c_idx).value for c_idx in range(1, sheet.max_column + 1)]
         if any(row_vals):
+            date_val = row_vals[1]
+            standard_date_str = ""
+            if date_val:
+                # Eğer veri zaten bir datetime nesnesi ise
+                if hasattr(date_val, 'strftime'): 
+                    standard_date_str = date_val.strftime('%d.%m.%Y')
+                else: 
+                    # String ise en yaygın formatları deneyerek parse et
+                    date_str = str(date_val).strip()
+                    parsed_dt = None
+                    for fmt in ('%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                        try:
+                            parsed_dt = pd.to_datetime(date_str, format=fmt)
+                            break
+                        except:
+                            continue
+                    if parsed_dt is not None and not pd.isna(parsed_dt):
+                        standard_date_str = parsed_dt.strftime('%d.%m.%Y')
+                    else:
+                        standard_date_str = date_str # Fallback
+            
             data.append({
                 "row_idx": r_idx,
                 "no": row_vals[0],
-                "date": row_vals[1],
+                "date": standard_date_str,
                 "location": row_vals[2],
                 "fleet": row_vals[3],
                 "reg": row_vals[7],
@@ -205,13 +231,13 @@ def generate_output_excel(original_bytes, selected_row_indices, yellow_row_indic
 
 # ----------------- ADIM 1: DOSYA YÜKLEME -----------------
 if st.session_state.step == "upload":
-    st.title("Logbook Düzenleme Otomasyonu")
-    st.subheader("Logbook Excel (.xlsx) Dosyanızı Yükleyin")
+    st.title("✈️ Logbook Düzenleme Otomasyonu")
+    st.subheader("Orijinal Excel (.xlsx) Dosyanızı Yükleyin")
     
     if not hangar_base64:
-        st.warning("İpucu: Arka planın hangar resmi olması için background.jpg' dosyasını bu proje klasörüne kopyalayın.")
+        st.warning("İpucu: Arka planın hangar resmi olması için '2-c-Turkish-Technic-scaled.jpg' dosyasını bu proje klasörüne kopyalayın.")
     if not plane_base64:
-        st.warning("İpucu: Sonda uçağın uçması için 'plane.jpg' dosyasını bu proje klasörüne kopyalayın.")
+        st.warning("İpucu: Sonda uçağın uçması için 'pngegg.jpg' dosyasını bu proje klasörüne kopyalayın.")
         
     uploaded_file = st.file_uploader("Dosya Seçin", type=["xlsx"])
     
@@ -220,10 +246,23 @@ if st.session_state.step == "upload":
             file_bytes = uploaded_file.getvalue()
             df = load_excel_data(file_bytes)
             
+            # Tarihleri kronolojik (Yıl -> Ay -> Gün) olarak sıralama mekanizması
+            parsed_dates = []
+            for d in df['date'].unique():
+                try:
+                    dt = pd.to_datetime(d, format='%d.%m.%Y')
+                    parsed_dates.append((dt, d))
+                except:
+                    parsed_dates.append((pd.Timestamp.max, d)) # Hatalı tarihleri en sona atar
+            
+            # Kronolojik sırala
+            parsed_dates.sort(key=lambda x: x[0])
+            sorted_unique_dates = [x[1] for x in parsed_dates]
+            
             st.session_state.original_file_bytes = file_bytes
-            st.session_state.original_filename = uploaded_file.name # Orijinal dosya adını kaydet
+            st.session_state.original_filename = uploaded_file.name
             st.session_state.raw_data = df
-            st.session_state.unique_dates = sorted(df['date'].unique())
+            st.session_state.unique_dates = sorted_unique_dates
             st.session_state.selected_jobs = {}
             st.session_state.step = "choose_mode"
             st.rerun()
@@ -239,7 +278,7 @@ elif st.session_state.step == "choose_mode":
     with col1:
         st.success("⚡ 1. Seçenek: Otomatik (Hızlı)")
         st.write("**Otomatik ilk satırı seçer diğerlerini siler.**")
-        st.write("Aynı günde sadece 1 iş seçimi yapar. Sisteme yüklenen listedeki her gün için ilk sıradaki işi otomatik tutar, geri kalanları siler ve sizi doğrudan işleri Sarı Boyama ekranına yönlendirir.")
+        st.write("Aynı günde sadece 1 iş seçimi yapar. Sisteme yüklenen listedeki her gün için ilk sıradaki işi otomatik tutar, geri kalanları siler ve sizi doğrudan Sarı Boyama ekranına yönlendirir.")
         if st.button("Otomatik Seçimle İlerle", use_container_width=True, type="primary"):
             for date in st.session_state.unique_dates:
                 daily_jobs = st.session_state.raw_data[st.session_state.raw_data['date'] == date]
@@ -252,7 +291,7 @@ elif st.session_state.step == "choose_mode":
     with col2:
         st.info("🖐️ 2. Seçenek: Manuel (Kontrollü)")
         st.write("**Tek tek elle seçerek devam edilir.**")
-        st.write("Tüm günler için o güne ait işler ayrı ayrı listelenir. Hangi işin tabloda kalacağına okuyarak siz karar verirsiniz.")
+        st.write("Tüm günler için o güne ait işler listelenir. Hangi işin tabloda kalacağına okuyarak bizzat siz karar verirsiniz.")
         if st.button("Manuel Seçime Başla", use_container_width=True):
             st.session_state.current_date_idx = 0
             st.session_state.step = "select_daily"
@@ -318,18 +357,50 @@ elif st.session_state.step == "select_daily":
     </script>
     """, height=0)
 
+    # --- KRONOLOJİK GRUPLANDIRMA (SIDEBAR HAZIRLIĞI) ---
+    # Tarihleri Yıl -> Ay bazında gruplayalım
+    grouped = defaultdict(lambda: defaultdict(list))
+    for idx, d_str in enumerate(dates):
+        try:
+            parts = d_str.split('.')
+            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+        except:
+            year, month = 9999, 12 # Fallback
+        grouped[year][month].append((idx, d_str))
+        
+    MONTH_NAMES = {
+        1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
+        7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
+    }
+
+    # Aktif günü bulup yılına göre expander durumunu ayarla
+    try:
+        active_year = int(current_date.split('.')[2])
+    except:
+        active_year = None
+
     # --- SOL SÜTUN (YANDAKİ NAVİGASYON) ---
     st.sidebar.title("📅 Gün Seçici")
     
-    for i, d in enumerate(dates):
-        status_icon = "🟢" if d in st.session_state.selected_jobs else "⚪"
-        label = f"{status_icon} {d}"
-        if i == current_idx:
-            label = f"👉 {d} (Aktif)"
-            
-        if st.sidebar.button(label, key=f"nav_btn_{d}", use_container_width=True):
-            st.session_state.current_date_idx = i
-            st.rerun()
+    for year in sorted(grouped.keys()):
+        # Yalnızca aktif tarih ile eşleşen yılın expander'ı otomatik açılır
+        is_expanded = (year == active_year)
+        with st.sidebar.expander(f"📁 {year} Yılı", expanded=is_expanded):
+            for month in sorted(grouped[year].keys()):
+                st.markdown(f"**{MONTH_NAMES.get(month, month)}**")
+                for idx, d_str in grouped[year][month]:
+                    status_icon = "🟢" if d_str in st.session_state.selected_jobs else "⚪"
+                    
+                    if idx == current_idx:
+                        label = f"👉 {d_str} (Aktif)"
+                        if st.sidebar.button(label, key=f"nav_btn_{d_str}", use_container_width=True, type="primary"):
+                            st.session_state.current_date_idx = idx
+                            st.rerun()
+                    else:
+                        label = f"{status_icon} {d_str}"
+                        if st.sidebar.button(label, key=f"nav_btn_{d_str}", use_container_width=True):
+                            st.session_state.current_date_idx = idx
+                            st.rerun()
 
     # --- SAĞ SÜTUN (ANA EKRAN) ---
     st.title("⚡ Seri İş Seçim Ekranı")
@@ -337,7 +408,7 @@ elif st.session_state.step == "select_daily":
     st.progress(progress)
     st.subheader(f"Tarih: {current_date} ({current_idx + 1} / {len(dates)})")
     
-    st.info("⌨️ **Klavye Kısayolları:** Seçenekler arasında gezmek için **AŞAĞI / YUKARI OK** tuşlarını kullanın. Seçimi onaylayıp sonraki güne geçmek için **ENTER** tuşuna basın.")
+    st.info("⌨️ **Klavye Kısayolları:** Seçenekler arasında gezmek için **Aşağı / Yukarı Ok** tuşlarını kullanın. Seçimi onaylayıp sonraki güne geçmek için **Enter** tuşuna basın.")
     
     daily_jobs = df[df['date'] == current_date]
     
@@ -380,13 +451,17 @@ elif st.session_state.step == "select_daily":
 
 # ----------------- ADIM 4: ÖRNEK İŞ SEÇİMİ (SARI BOYAMA) -----------------
 elif st.session_state.step == "select_samples":
-    st.title("Örnek İşlerin Seçilmesi")
+    st.title("🎯 Örnek İşlerin Belirlenmesi")
     
     selected_indices = list(st.session_state.selected_jobs.values())
     df = st.session_state.raw_data
     selected_df = df[df['row_idx'].isin(selected_indices)].copy()
     
-    st.write(f"Toplam **{len(selected_df)}** gün/iş filtrelendi.")
+    # İnceleme tablosundaki verileri de kronolojik olarak sıralayalım
+    selected_df['temp_sort_date'] = pd.to_datetime(selected_df['date'], format='%d.%m.%Y', errors='coerce')
+    selected_df = selected_df.sort_values('temp_sort_date')
+    
+    st.write(f"Toplam **{len(selected_df)}** gün/iş kronolojik olarak filtrelendi.")
     st.info("Otoriteye örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
     
     selected_df['Sarı Boya (Örnek İş)'] = False
@@ -422,12 +497,13 @@ elif st.session_state.step == "select_samples":
                 st.session_state.step = "download"
                 st.rerun()
 
-# ----------------- ADIM 5: HY UÇAĞI ANİMASYONU EKRANI -----------------
+# ----------------- ADIM 5: İNDİRME VE SAĞDAN SOLA THY UÇAĞI ANİMASYONU EKRANI -----------------
 elif st.session_state.step == "download":
     st.title("🏆 Raporunuz Hazır!")
     
     # --- JAVASCRIPT: GERÇEK UÇAK RESMİ İLE SAĞDAN SOLA UÇUŞ ANİMASYONU ---
     if plane_base64:
+        # scaleX(-1) aynalama kaldırıldı; uçağın burnu zaten doğal olarak sola (gideceği yöne) bakıyor.
         plane_html = f'<img class="thy-plane-img" src="{plane_base64}">'
         plane_css = """
         .thy-plane-img {
@@ -477,7 +553,7 @@ elif st.session_state.step == "download":
     </script>
     """, height=0)
 
-    st.success("Tebrikler! Logbook dosyanız seçtiğiniz işlere göre başarıyla oluşturuldu. KONTROL ETMEYİ UNUTMAYINIZ!")
+    st.success("Tebrikler! Seçtiğiniz ayarlara göre Excel dosyası, şablon yapısı %100 korunarak başarıyla oluşturuldu.")
     
     st.download_button(
         label="📥 Düzenlenmiş Excel Dosyasını İndir (.xlsx)",

@@ -23,8 +23,8 @@ def get_base64_image(file_path):
     return ""
 
 # Görselleri klasörden oku
-plane_base64 = get_base64_image("plane.jpg")
-hangar_base64 = get_base64_image("background.jpg")
+plane_base64 = get_base64_image("pngegg.jpg")
+hangar_base64 = get_base64_image("2-c-Turkish-Technic-scaled.jpg")
 
 # CSS Temalandırma
 bg_css = ""
@@ -156,11 +156,13 @@ if 'original_filename' not in st.session_state:
 def safe_get(lst, idx):
     return lst[idx] if idx < len(lst) else None
 
+# Excel Verisini Yükleme Fonksiyonu (DÜZELTİLMİŞ DOĞRU ENDEKSLER)
 def load_excel_data(file_bytes):
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
     sheet = wb.active
     
     data = []
+    # 1. ve 2. satırlar başlık, veri 3'ten başlar
     for r_idx in range(3, sheet.max_row + 1):
         row_vals = [sheet.cell(row=r_idx, column=c_idx).value for c_idx in range(1, sheet.max_column + 1)]
         if any(row_vals):
@@ -183,7 +185,16 @@ def load_excel_data(file_bytes):
                     else:
                         standard_date_str = date_str
             
-            duration_val = safe_get(row_vals, 23)
+            # DOĞRU SÜTUN EŞLEŞTİRMELERİ
+            privilege_val = safe_get(row_vals, 5)     # 5. Privilege Used -> indis 5
+            ata_val = safe_get(row_vals, 22)           # 10. ATA Chapter -> indis 22
+            check_type_val = safe_get(row_vals, 23)    # Check Type -> indis 23
+            description_val = safe_get(row_vals, 24)   # Description -> indis 24
+            duration_val = safe_get(row_vals, 25)      # 12. Time Duration -> indis 25
+            ref_val = safe_get(row_vals, 26)           # 13. Maintenance Record Reference -> indis 26
+            wo_val = safe_get(row_vals, 27)            # W/O Number -> indis 27
+
+            # Dakika hesabı için duration_val kontrolü (Standart HH:MM formatı için)
             duration_mins = 0
             if duration_val:
                 if isinstance(duration_val, (datetime.time, datetime.datetime)):
@@ -198,10 +209,6 @@ def load_excel_data(file_bytes):
                         try: duration_mins = int(d_str)
                         except: pass
 
-            privilege_val = safe_get(row_vals, 5)
-            ata_val = safe_get(row_vals, 20)
-            check_type_val = safe_get(row_vals, 21)
-
             data.append({
                 "row_idx": r_idx,
                 "no": safe_get(row_vals, 0),
@@ -212,11 +219,11 @@ def load_excel_data(file_bytes):
                 "reg": safe_get(row_vals, 7),
                 "ata": str(ata_val).strip() if ata_val else "",
                 "check_type": str(check_type_val).strip() if check_type_val else "",
-                "description": safe_get(row_vals, 22),
+                "description": description_val,
                 "duration": duration_val,
                 "duration_mins": duration_mins,
-                "ref": safe_get(row_vals, 24),
-                "wo": safe_get(row_vals, 25)
+                "ref": ref_val,
+                "wo": wo_val
             })
     
     df = pd.DataFrame(data)
@@ -270,7 +277,7 @@ def generate_output_excel(original_bytes, selected_row_indices, yellow_row_indic
 # ----------------- ADIM 1: DOSYA YÜKLEME -----------------
 if st.session_state.step == "upload":
     st.title("✈️ Logbook Düzenleme Otomasyonu")
-    st.subheader("Excel (.xlsx) Dosyanızı Yükleyin")
+    st.subheader("Orijinal Excel (.xlsx) Dosyanızı Yükleyin")
     
     uploaded_file = st.file_uploader("Dosya Seçin", type=["xlsx"])
     
@@ -289,10 +296,10 @@ if st.session_state.step == "upload":
         except Exception as e:
             st.error(f"Hata: {e}. Lütfen doğru şablonda bir .xlsx dosyası yükleyin.")
 
-# ----------------- ADIM 2: ÖN FİLTRELEME VE TEMİZLİK (YENİ EKRAN) -----------------
+# ----------------- ADIM 2: ÖN FİLTRELEME VE TEMİZLİK -----------------
 elif st.session_state.step == "filter_data":
     st.title("🧹 Gereksiz İşleri Ayıklama (Filtreleme)")
-    st.write("Listeden kısa süreli veya Yetki, ATA, Check Type'a göre filtrelenen gereksiz olan işleri seçerek Excel tablosundan silebilirsiniz.")
+    st.write("Listeden tamamen çıkarılması gereken, çok kısa süren veya belirli kriterlere (Yetki, ATA, Check Type) sahip olan işleri seçerek Excel tablosundan kökten silebilirsiniz.")
 
     df = st.session_state.raw_data
 
@@ -304,7 +311,7 @@ elif st.session_state.step == "filter_data":
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("### 🚫 Silinecek Kategoriler")
-        sel_privs = st.multiselect("Silinecek Yetkileri Seçin:", options=privileges)
+        sel_privs = st.multiselect("Silinecek 'Privilege Used' Yetkilerini Seçin:", options=privileges)
         sel_atas = st.multiselect("Silinecek 'ATA Chapter' Bölümlerini Seçin:", options=atas)
         sel_checks = st.multiselect("Silinecek 'Check Type' Türlerini Seçin:", options=check_types)
 
@@ -323,7 +330,7 @@ elif st.session_state.step == "filter_data":
 
     if len(to_delete) > 0:
         st.error(f"⚠️ DİKKAT: Seçimlerinize göre toplam **{len(to_delete)} adet iş** Excel listesinden ve sistemden kalıcı olarak SİLİNECEKTİR.")
-        st.markdown("**Silinecek İşlerin Ön İzlemesi:**")
+        st.markdown("**Silinecek İşlerin Ön İzlemesi (Süreler Dahil):**")
         
         # Kırmızı Stil Uygulaması
         def color_red(val):
@@ -370,7 +377,6 @@ elif st.session_state.step == "filter_data":
 elif st.session_state.step == "choose_mode":
     st.title("⚙️ İşlem Modunu Seçin")
     
-    # Filtreleme ekranından gelen başarı mesajı varsa göster
     if 'filter_msg' in st.session_state:
         st.success(st.session_state.filter_msg)
         del st.session_state['filter_msg']
@@ -569,6 +575,7 @@ elif st.session_state.step == "select_daily":
             daily_jobs = df[df['date'] == d_str]
             options = {}
             for _, row in daily_jobs.iterrows():
+                # DÜZELTİLMİŞ ETİKET YAPISI (Veriler artık tamamen doğru kolonlardan geliyor!)
                 label = f"W/O: {row['wo']} | Ref: {row['ref']} | Süre: {row['duration']} | Tanım: {row['description']}"
                 options[row['row_idx']] = label
                 
@@ -618,7 +625,7 @@ elif st.session_state.step == "select_samples":
     selected_df = selected_df.sort_values('temp_sort_date')
     
     st.write(f"Toplam **{len(selected_df)}** gün/iş filtrelendi.")
-    st.info("Örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
+    st.info("Otoriteye örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
     
     selected_df['Sarı Boya (Örnek İş)'] = False
     

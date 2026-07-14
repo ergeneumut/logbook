@@ -643,7 +643,7 @@ elif st.session_state.step == "select_samples":
     selected_df['Sarı Boya (Örnek İş)'] = False
     
     edited_df = st.data_editor(
-        selected_df[['Sarı Boya (Örnek İş)', 'date', 'location', 'fleet', 'reg', 'description', 'duration', 'wo', 'ref', 'row_idx']],
+        selected_df[['Sarı Boya (Örnek İş)', 'date', 'location', 'fleet', 'reg', 'wo', 'ref', 'description', 'duration', 'row_idx']],
         disabled=['date', 'location', 'fleet', 'reg', 'description', 'duration', 'wo', 'row_idx'],
         column_config={
             "Sarı Boya (Örnek İş)": st.column_config.CheckboxColumn("Sarı Boya?", default=False)

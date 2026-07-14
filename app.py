@@ -657,13 +657,13 @@ elif st.session_state.step == "select_samples":
     
     col_b1, col_b2 = st.columns([1, 1])
     with col_b1:
-        if st.button("⬅️ Geri Dön ve Mod Seç", use_container_width=True):
+        if st.button("⬅️ Geri Dön ve Düzenleme Modu Seç", use_container_width=True):
             st.session_state.step = "choose_mode"
             st.rerun()
             
     with col_b2:
-        if st.button("Excel Dosyasını Üret ve Hazırla 📥", type="primary", use_container_width=True):
-            with st.spinner("Şablon korunarak Excel oluşturuluyor..."):
+        if st.button("Excel Dosyasını Hazırla 📥", type="primary", use_container_width=True):
+            with st.spinner("Exceli hazırlıyorum, azıcık sabret :)..."):
                 excel_data = generate_output_excel(
                     st.session_state.original_file_bytes, 
                     selected_indices, 
@@ -727,10 +727,10 @@ elif st.session_state.step == "download":
     </script>
     """, height=0)
 
-    st.success("Tebrikler! Seçtiğiniz ayarlara ve temizlik filtrelerinize göre Excel dosyası, format yapısı %100 korunarak başarıyla oluşturuldu.")
+    st.success("Tebrikler! Seçtiğin ayarlara ve temizlik filtrelerine göre dosya başarıyla oluşturuldu. Şimdi kahve molası :)")
     
     st.download_button(
-        label="📥 Düzenlenmiş Excel Dosyasını İndir (.xlsx)",
+        label="📥 Düzenlenmiş Excel Dosyasını İndir",
         data=st.session_state.final_excel,
         file_name=st.session_state.original_filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -156,7 +156,7 @@ if 'original_filename' not in st.session_state:
 def safe_get(lst, idx):
     return lst[idx] if idx < len(lst) else None
 
-# Excel Verisini Yükleme Fonksiyonu (DÜZELTİLMİŞ DOĞRU ENDEKSLER)
+# Excel Verisini Yükleme Fonksiyonu
 def load_excel_data(file_bytes):
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
     sheet = wb.active
@@ -185,16 +185,16 @@ def load_excel_data(file_bytes):
                     else:
                         standard_date_str = date_str
             
-            # DOĞRU SÜTUN EŞLEŞTİRMELERİ
-            privilege_val = safe_get(row_vals, 5)     # 5. Privilege Used -> indis 5
-            ata_val = safe_get(row_vals, 22)           # 10. ATA Chapter -> indis 22
-            check_type_val = safe_get(row_vals, 23)    # Check Type -> indis 23
-            description_val = safe_get(row_vals, 24)   # Description -> indis 24
-            duration_val = safe_get(row_vals, 25)      # 12. Time Duration -> indis 25
-            ref_val = safe_get(row_vals, 26)           # 13. Maintenance Record Reference -> indis 26
-            wo_val = safe_get(row_vals, 27)            # W/O Number -> indis 27
+            # --- %100 GERÇEK VE KAYMASIZ SÜTUN EŞLEŞTİRMELERİ ---
+            privilege_val = safe_get(row_vals, 5)      # F Sütunu: 5. Privilege Used (Indis 5)
+            ata_val = safe_get(row_vals, 21)            # V Sütunu: 10. ATA Chapter (Indis 21)
+            check_type_val = safe_get(row_vals, 22)     # W Sütunu: Check Type (Indis 22)
+            description_val = safe_get(row_vals, 23)    # X Sütunu: Description (Indis 23)
+            duration_val = safe_get(row_vals, 24)       # Y Sütunu: 12. Time Duration (Indis 24)
+            ref_val = safe_get(row_vals, 25)            # Z Sütunu: 13. Maintenance Record Reference (Indis 25)
+            wo_val = safe_get(row_vals, 26)             # AA Sütunu: W/O Number (Indis 26)
 
-            # Dakika hesabı için duration_val kontrolü (Standart HH:MM formatı için)
+            # Dakika hesabı için duration_val kontrolü
             duration_mins = 0
             if duration_val:
                 if isinstance(duration_val, (datetime.time, datetime.datetime)):
@@ -575,7 +575,6 @@ elif st.session_state.step == "select_daily":
             daily_jobs = df[df['date'] == d_str]
             options = {}
             for _, row in daily_jobs.iterrows():
-                # DÜZELTİLMİŞ ETİKET YAPISI (Veriler artık tamamen doğru kolonlardan geliyor!)
                 label = f"W/O: {row['wo']} | Ref: {row['ref']} | Süre: {row['duration']} | Tanım: {row['description']}"
                 options[row['row_idx']] = label
                 

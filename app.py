@@ -9,7 +9,7 @@ import streamlit.components.v1 as components
 from collections import defaultdict
 
 # Sayfa Yapılandırması
-st.set_page_config(page_title="Hızlı Logbook Otomasyonu", layout="wide")
+st.set_page_config(page_title="Logbook Otomasyonu", layout="wide")
 
 # Görselleri Base64 formatına çeviren yardımcı fonksiyon
 def get_base64_image(file_path):
@@ -22,8 +22,8 @@ def get_base64_image(file_path):
     return ""
 
 # Görselleri klasörden oku
-plane_base64 = get_base64_image("pngegg.jpg")
-hangar_base64 = get_base64_image("2-c-Turkish-Technic-scaled.jpg")
+plane_base64 = get_base64_image("plane.jpg")
+hangar_base64 = get_base64_image("background.jpg")
 
 # CSS ile Arka Planı Hangar Yapma ve Modern Yüksek Okunabilirlik Temalandırması
 bg_css = ""
@@ -232,7 +232,7 @@ def generate_output_excel(original_bytes, selected_row_indices, yellow_row_indic
 # ----------------- ADIM 1: DOSYA YÜKLEME -----------------
 if st.session_state.step == "upload":
     st.title("✈️ Logbook Düzenleme Otomasyonu")
-    st.subheader("Orijinal Excel (.xlsx) Dosyanızı Yükleyin")
+    st.subheader("Excel (.xlsx) Dosyanızı Yükleyin")
     
     if not hangar_base64:
         st.warning("İpucu: Arka planın hangar resmi olması için '2-c-Turkish-Technic-scaled.jpg' dosyasını bu proje klasörüne kopyalayın.")
@@ -541,7 +541,7 @@ elif st.session_state.step == "select_samples":
     selected_df = selected_df.sort_values('temp_sort_date')
     
     st.write(f"Toplam **{len(selected_df)}** gün/iş kronolojik olarak filtrelendi.")
-    st.info("Otoriteye örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
+    st.info("Örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
     
     selected_df['Sarı Boya (Örnek İş)'] = False
     
@@ -635,7 +635,7 @@ elif st.session_state.step == "download":
     st.download_button(
         label="📥 Düzenlenmiş Excel Dosyasını İndir (.xlsx)",
         data=st.session_state.final_excel,
-        file_name=st.session_state.original_filename, # Yüklenen dosyanın orijinal adı ile indirilir.
+        file_name=st.session_state.original_filename, # Yüklenen dosyanın orjinal adı ile indirilir.
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )

@@ -5,6 +5,7 @@ from openpyxl.styles import PatternFill
 import io
 import os
 import base64
+import datetime
 import streamlit.components.v1 as components
 from collections import defaultdict
 
@@ -22,10 +23,10 @@ def get_base64_image(file_path):
     return ""
 
 # Görselleri klasörden oku
-plane_base64 = get_base64_image("plane.jpg")
-hangar_base64 = get_base64_image("background.jpg")
+plane_base64 = get_base64_image("pngegg.jpg")
+hangar_base64 = get_base64_image("2-c-Turkish-Technic-scaled.jpg")
 
-# CSS ile Arka Planı Hangar Yapma ve Modern Yüksek Okunabilirlik Temalandırması
+# CSS Temalandırma
 bg_css = ""
 if hangar_base64:
     bg_css = f"""
@@ -47,11 +48,8 @@ st.markdown(f"""
     <style>
     {bg_css}
     
-    [data-testid="stHeader"] {{
-        background: transparent !important;
-    }}
+    [data-testid="stHeader"] {{ background: transparent !important; }}
     
-    /* 1. ANA ÇALIŞMA ALANINI BEYAZ VE ŞIK BİR KART YAPMA */
     .block-container {{
         background-color: rgba(255, 255, 255, 0.96) !important;
         padding: 3rem !important;
@@ -62,13 +60,11 @@ st.markdown(f"""
         margin-bottom: 4vh !important;
     }}
     
-    /* 2. ANA ALANDAKİ TÜM YAZILARI KESKİN SİYAH/KOYU GRİ YAPMA */
     h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown, [data-testid="stWidgetLabel"] p {{
         color: #1e293b !important;
         text-shadow: none !important;
     }}
     
-    /* 3. SOLDALİ TAB (SIDEBAR) BEYAZ ARKA PLAN VE SİYAH YAZILAR */
     [data-testid="stSidebar"] {{
         background-color: rgba(255, 255, 255, 0.98) !important;
         border-right: 1px solid rgba(0,0,0,0.1);
@@ -78,7 +74,6 @@ st.markdown(f"""
         text-shadow: none !important;
     }}
     
-    /* Sidebar içindeki butonlar için soft gri zemin */
     [data-testid="stSidebar"] button {{
         background-color: #f1f5f9 !important;
         color: #0f172a !important;
@@ -89,7 +84,6 @@ st.markdown(f"""
         border-color: #94a3b8 !important;
     }}
     
-    /* 4. SEÇENEK SEÇİM EKRANINDAKİ KUTUCUKLARIN BEYAZ VE BELİRGİN YAPILMASI */
     div[data-testid="column"] {{
         background-color: #ffffff !important;
         padding: 2.5rem !important;
@@ -98,7 +92,6 @@ st.markdown(f"""
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
     }}
     
-    /* İş Seçim Satırları (Radio Grupları) için Geçişli ve Yumuşak Kenarlık Tasarımı */
     div[data-testid="stRadio"] {{
         border-left: 6px solid transparent;
         padding: 15px !important;
@@ -108,14 +101,12 @@ st.markdown(f"""
         margin-bottom: 15px;
     }}
     
-    /* Radyo butonu seçenek metinleri */
     .stRadio [data-testid="stMarkdownContainer"] {{
         font-size: 16px !important;
         font-weight: 500;
         color: #1e293b !important;
     }}
     
-    /* Dosya yükleme dropzone'u */
     [data-testid="stUploadDropzone"] {{
         background-color: #f8fafc !important;
         border: 2px dashed #3b82f6 !important;
@@ -125,7 +116,6 @@ st.markdown(f"""
         color: #475569 !important;
     }}
     
-    /* Bilgilendirme ve uyarı kutuları (Alerts) */
     .stAlert {{
         background-color: #f8fafc !important;
         border: 1px solid #e2e8f0 !important;
@@ -135,19 +125,17 @@ st.markdown(f"""
         text-shadow: none !important;
     }}
     
-    /* Progress Bar rengi (Mavi) */
     .stProgress > div > div > div > div {{
         background-color: #3b82f6 !important;
     }}
     
-    /* Tablo veri hücresi gölgelerini kaldır */
     div[data-testid="stDataFrame"] * {{
         text-shadow: none !important;
     }}
     </style>
 """, unsafe_allow_html=True)
 
-# State (Durum) Yönetimi
+# State Yönetimi
 if 'step' not in st.session_state:
     st.session_state.step = "upload"
 if 'selected_jobs' not in st.session_state:
@@ -165,17 +153,18 @@ if 'original_file_bytes' not in st.session_state:
 if 'original_filename' not in st.session_state:
     st.session_state.original_filename = "Logbook_Raporu.xlsx"
 
-# Excel Verisini Yükleme Fonksiyonu (Standartlaştırılmış Tarih Formatı ile)
+def safe_get(lst, idx):
+    return lst[idx] if idx < len(lst) else None
+
 def load_excel_data(file_bytes):
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
     sheet = wb.active
     
     data = []
-    # 1. ve 2. satırlar başlık, veri 3'ten başlar
     for r_idx in range(3, sheet.max_row + 1):
         row_vals = [sheet.cell(row=r_idx, column=c_idx).value for c_idx in range(1, sheet.max_column + 1)]
         if any(row_vals):
-            date_val = row_vals[1]
+            date_val = safe_get(row_vals, 1)
             standard_date_str = ""
             if date_val:
                 if hasattr(date_val, 'strftime'): 
@@ -194,41 +183,80 @@ def load_excel_data(file_bytes):
                     else:
                         standard_date_str = date_str
             
+            duration_val = safe_get(row_vals, 23)
+            duration_mins = 0
+            if duration_val:
+                if isinstance(duration_val, (datetime.time, datetime.datetime)):
+                    duration_mins = duration_val.hour * 60 + duration_val.minute
+                else:
+                    d_str = str(duration_val).strip()
+                    if ':' in d_str:
+                        parts = d_str.split(':')
+                        try: duration_mins = int(parts[0]) * 60 + int(parts[1])
+                        except: pass
+                    else:
+                        try: duration_mins = int(d_str)
+                        except: pass
+
+            privilege_val = safe_get(row_vals, 5)
+            ata_val = safe_get(row_vals, 20)
+            check_type_val = safe_get(row_vals, 21)
+
             data.append({
                 "row_idx": r_idx,
-                "no": row_vals[0],
+                "no": safe_get(row_vals, 0),
                 "date": standard_date_str,
-                "location": row_vals[2],
-                "fleet": row_vals[3],
-                "reg": row_vals[7],
-                "description": row_vals[22],
-                "duration": row_vals[23],
-                "ref": row_vals[24],
-                "wo": row_vals[25]
+                "location": safe_get(row_vals, 2),
+                "fleet": safe_get(row_vals, 3),
+                "privilege": str(privilege_val).strip() if privilege_val else "",
+                "reg": safe_get(row_vals, 7),
+                "ata": str(ata_val).strip() if ata_val else "",
+                "check_type": str(check_type_val).strip() if check_type_val else "",
+                "description": safe_get(row_vals, 22),
+                "duration": duration_val,
+                "duration_mins": duration_mins,
+                "ref": safe_get(row_vals, 24),
+                "wo": safe_get(row_vals, 25)
             })
     
     df = pd.DataFrame(data)
     df['date'] = df['date'].astype(str).str.strip()
     return df
 
-# Formatı %100 Koruyan Excel Çıktısı Üretme Fonksiyonu
+def recalculate_dates_and_months(df):
+    parsed_dates = []
+    for d in df['date'].unique():
+        try:
+            dt = pd.to_datetime(d, format='%d.%m.%Y')
+            parsed_dates.append((dt, d))
+        except:
+            parsed_dates.append((pd.Timestamp.max, d))
+    parsed_dates.sort(key=lambda x: x[0])
+    sorted_unique_dates = [x[1] for x in parsed_dates]
+
+    unique_months = []
+    for d in sorted_unique_dates:
+        parts = d.split('.')
+        if len(parts) == 3:
+            yr, mn = parts[2], parts[1]
+            if (yr, mn) not in unique_months:
+                unique_months.append((yr, mn))
+    return sorted_unique_dates, unique_months
+
 def generate_output_excel(original_bytes, selected_row_indices, yellow_row_indices):
     wb = openpyxl.load_workbook(io.BytesIO(original_bytes))
     sheet = wb.active
     
-    # 1. ADIM: Sarı boyanacak satırları boya
     yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     for r_idx in yellow_row_indices:
         for col in range(1, sheet.max_column + 1):
             sheet.cell(row=r_idx, column=col).fill = yellow_fill
 
-    # 2. ADIM: Seçilmeyen işleri tablodan sil (Aşağıdan yukarıya doğru)
     max_row = sheet.max_row
     for r_idx in range(max_row, 2, -1):
         if r_idx not in selected_row_indices:
             sheet.delete_rows(r_idx)
             
-    # 3. ADIM: Sıra No kolonunu (1. Sütun) yeniden düzenle
     current_no = 1
     for r_idx in range(3, sheet.max_row + 1):
         sheet.cell(row=r_idx, column=1, value=current_no)
@@ -244,11 +272,6 @@ if st.session_state.step == "upload":
     st.title("✈️ Logbook Düzenleme Otomasyonu")
     st.subheader("Orijinal Excel (.xlsx) Dosyanızı Yükleyin")
     
-    if not hangar_base64:
-        st.warning("İpucu: Arka planın hangar resmi olması için '2-c-Turkish-Technic-scaled.jpg' dosyasını bu proje klasörüne kopyalayın.")
-    if not plane_base64:
-        st.warning("İpucu: Sonda uçağın uçması için 'pngegg.jpg' dosyasını bu proje klasörüne kopyalayın.")
-        
     uploaded_file = st.file_uploader("Dosya Seçin", type=["xlsx"])
     
     if uploaded_file is not None:
@@ -256,48 +279,109 @@ if st.session_state.step == "upload":
             file_bytes = uploaded_file.getvalue()
             df = load_excel_data(file_bytes)
             
-            # Tarihleri kronolojik sırala
-            parsed_dates = []
-            for d in df['date'].unique():
-                try:
-                    dt = pd.to_datetime(d, format='%d.%m.%Y')
-                    parsed_dates.append((dt, d))
-                except:
-                    parsed_dates.append((pd.Timestamp.max, d))
-            
-            parsed_dates.sort(key=lambda x: x[0])
-            sorted_unique_dates = [x[1] for x in parsed_dates]
-            
-            # Benzersiz Yıl-Ay kombinasyonlarını kronolojik olarak çıkar
-            unique_months = []
-            for d in sorted_unique_dates:
-                parts = d.split('.')
-                if len(parts) == 3:
-                    yr, mn = parts[2], parts[1]
-                    if (yr, mn) not in unique_months:
-                        unique_months.append((yr, mn))
-            
             st.session_state.original_file_bytes = file_bytes
             st.session_state.original_filename = uploaded_file.name
             st.session_state.raw_data = df
-            st.session_state.unique_dates = sorted_unique_dates
-            st.session_state.unique_months = unique_months
-            st.session_state.selected_jobs = {}
-            st.session_state.step = "choose_mode"
+            
+            # Filtreleme ekranına yönlendir
+            st.session_state.step = "filter_data"
             st.rerun()
         except Exception as e:
             st.error(f"Hata: {e}. Lütfen doğru şablonda bir .xlsx dosyası yükleyin.")
 
-# ----------------- ADIM 2: SEÇİM MODU -----------------
+# ----------------- ADIM 2: ÖN FİLTRELEME VE TEMİZLİK (YENİ EKRAN) -----------------
+elif st.session_state.step == "filter_data":
+    st.title("🧹 Gereksiz İşleri Ayıklama (Filtreleme)")
+    st.write("Listeden tamamen çıkarılması gereken, çok kısa süren veya belirli kriterlere (Yetki, ATA, Check Type) sahip olan işleri seçerek Excel tablosundan kökten silebilirsiniz.")
+
+    df = st.session_state.raw_data
+
+    # Boş olmayan benzersiz değerleri topla
+    privileges = sorted([str(p) for p in df['privilege'].unique() if pd.notna(p) and str(p).strip()])
+    atas = sorted([str(a) for a in df['ata'].unique() if pd.notna(a) and str(a).strip()])
+    check_types = sorted([str(c) for c in df['check_type'].unique() if pd.notna(c) and str(c).strip()])
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("### 🚫 Silinecek Kategoriler")
+        sel_privs = st.multiselect("Silinecek 'Privilege Used' Yetkilerini Seçin:", options=privileges)
+        sel_atas = st.multiselect("Silinecek 'ATA Chapter' Bölümlerini Seçin:", options=atas)
+        sel_checks = st.multiselect("Silinecek 'Check Type' Türlerini Seçin:", options=check_types)
+
+    with col2:
+        st.markdown("### ⏱️ Süre Filtresi")
+        st.write("Süresi girilen dakikadan **daha az olan** tüm işler silinecektir.")
+        min_minutes = st.number_input("Maksimum Süre Sınırı (Dakika) - Örn: 30:", min_value=0, max_value=600, value=0, step=15)
+
+    # Silinecekleri Maskeleme
+    mask = df['privilege'].isin(sel_privs) | df['ata'].isin(sel_atas) | df['check_type'].isin(sel_checks)
+    if min_minutes > 0:
+        mask = mask | (df['duration_mins'] < min_minutes)
+
+    to_delete = df[mask]
+    to_keep = df[~mask]
+
+    if len(to_delete) > 0:
+        st.error(f"⚠️ DİKKAT: Seçimlerinize göre toplam **{len(to_delete)} adet iş** Excel listesinden ve sistemden kalıcı olarak SİLİNECEKTİR.")
+        st.markdown("**Silinecek İşlerin Ön İzlemesi:**")
+        
+        # Kırmızı Stil Uygulaması
+        def color_red(val):
+            return 'color: #ff4b4b; background-color: #fee2e2;'
+            
+        styled_df = to_delete[['date', 'wo', 'duration', 'privilege', 'ata', 'check_type', 'description']].style.map(color_red)
+        st.dataframe(styled_df, use_container_width=True)
+
+        st.warning("Yukarıdaki işlerin tablodan çıkarılmasını onaylıyor musunuz?")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("🚨 Evet, Bu İşleri Sil ve Onayla", type="primary", use_container_width=True):
+                if len(to_keep) == 0:
+                    st.error("Tüm işleri sildiniz! Lütfen filtrelerinizi hafifletin.")
+                else:
+                    st.session_state.raw_data = to_keep
+                    dates, months = recalculate_dates_and_months(to_keep)
+                    st.session_state.unique_dates = dates
+                    st.session_state.unique_months = months
+                    
+                    st.session_state.filter_msg = f"✅ Temizlik Başarılı! Başlangıçta {len(df)} iş/gün vardı, {len(to_delete)} tanesi silindi. Kalan iş sayısı: {len(to_keep)}."
+                    st.session_state.step = "choose_mode"
+                    st.rerun()
+        with c2:
+            if st.button("❌ İptal Et ve Silmeden İlerle", use_container_width=True):
+                dates, months = recalculate_dates_and_months(df)
+                st.session_state.unique_dates = dates
+                st.session_state.unique_months = months
+                st.session_state.step = "choose_mode"
+                st.rerun()
+    else:
+        st.info("ℹ️ Şu anki filtrelere göre silinecek hiçbir iş bulunmuyor. Farklı ayarlar deneyebilir veya doğrudan iş seçimine geçebilirsiniz.")
+        st.write("---")
+        if st.button("Temizliği Atla ve İş Seçimine Geç ➡️", use_container_width=True, type="primary"):
+            dates, months = recalculate_dates_and_months(df)
+            st.session_state.unique_dates = dates
+            st.session_state.unique_months = months
+            st.session_state.step = "choose_mode"
+            st.rerun()
+
+
+# ----------------- ADIM 3: SEÇİM MODU -----------------
 elif st.session_state.step == "choose_mode":
     st.title("⚙️ İşlem Modunu Seçin")
-    st.write("Dosyanız başarıyla yüklendi. İşlemleri nasıl yapmak istersiniz?")
+    
+    # Filtreleme ekranından gelen başarı mesajı varsa göster
+    if 'filter_msg' in st.session_state:
+        st.success(st.session_state.filter_msg)
+        del st.session_state['filter_msg']
+        
+    st.write("Dosyanız işlemlere hazır. İşlemleri nasıl yapmak istersiniz?")
     
     col1, col2 = st.columns(2)
     with col1:
         st.success("⚡ 1. Seçenek: Otomatik (Hızlı)")
         st.write("**Otomatik ilk satırı seçer diğerlerini siler.**")
-        st.write("Aynı günde sadece 1 iş seçimi yapar. Sisteme yüklenen listedeki her gün için ilk sıradaki işi otomatik tutar, geri kalanları siler ve sizi doğrudan Sarı Boyama ekranına yönlendirir.")
+        st.write("Aynı günde sadece 1 iş seçimi yapar. Kalan günlerdeki ilk işi otomatik tutar, geri kalanları siler ve sizi doğrudan Sarı Boyama ekranına yönlendirir.")
         if st.button("Otomatik Seçimle İlerle", use_container_width=True, type="primary"):
             for date in st.session_state.unique_dates:
                 daily_jobs = st.session_state.raw_data[st.session_state.raw_data['date'] == date]
@@ -316,7 +400,7 @@ elif st.session_state.step == "choose_mode":
             st.session_state.step = "select_daily"
             st.rerun()
 
-# ----------------- ADIM 3: GRUPLANDIRILMIŞ SERİ MANUEL SEÇİM (BUGSİZ / EN HIZLI SÜRÜM) -----------------
+# ----------------- ADIM 4: GRUPLANDIRILMIŞ SERİ MANUEL SEÇİM -----------------
 elif st.session_state.step == "select_daily":
     df = st.session_state.raw_data
     dates = st.session_state.unique_dates
@@ -325,15 +409,11 @@ elif st.session_state.step == "select_daily":
     current_month_idx = st.session_state.current_month_idx
     active_year, active_month = unique_months[current_month_idx]
     
-    # Aktif aya ait günleri filtrele
     month_dates = [d for d in dates if d.endswith(f"{active_month}.{active_year}")]
     
-    # --- JAVASCRIPT: BEYSİBOL SOPASI GİBİ SAĞLAM KLAVYE VE FOCUS MOTORU ---
     components.html("""
     <script>
     const doc = window.parent.document;
-    
-    // Her yeni ay yüklendiğinde aktif odağı en başa çek
     window.parent._activeGroupIdx = 0;
     
     function highlightActiveGroup() {
@@ -344,11 +424,8 @@ elif st.session_state.step == "select_daily":
             if (idx === activeIdx) {
                 group.style.borderLeftColor = "#3b82f6";
                 group.style.backgroundColor = "#f1f5f9";
-                
-                // Seçilen grubu yumuşak bir şekilde ekrana ortala
                 group.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
-                // İçindeki radio elementine odaklan
                 const firstInput = group.querySelector('input[type="radio"]');
                 if (firstInput) firstInput.focus();
             } else {
@@ -358,7 +435,6 @@ elif st.session_state.step == "select_daily":
         });
     }
     
-    // Tıklanan günü algılama ve klavye odağını oraya senkronize etme
     function setupClickListeners() {
         const groups = Array.from(doc.querySelectorAll('div[data-testid="stRadio"]'));
         groups.forEach((group, idx) => {
@@ -372,7 +448,6 @@ elif st.session_state.step == "select_daily":
         });
     }
 
-    // Elementlerin sayfada yüklenmesini bekle
     const initTimer = setInterval(function() {
         const groups = doc.querySelectorAll('div[data-testid="stRadio"]');
         if (groups.length) {
@@ -382,12 +457,10 @@ elif st.session_state.step == "select_daily":
         }
     }, 100);
 
-    // KLAVYE YAKALAYICI (Duyarga Capture Modunda Çalışır: Enter tuşunu formdan önce kapar!)
     if (!window.parent._groupedKeyboardListenerAdded) {
         window.parent._groupedKeyboardListenerAdded = true;
         
         window.parent.document.addEventListener('keydown', function(e) {
-            // Bir input veya yazı alanındaysak klavyeyi serbest bırak
             if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
             
             const groups = Array.from(window.parent.document.querySelectorAll('div[data-testid="stRadio"]'));
@@ -401,30 +474,25 @@ elif st.session_state.step == "select_daily":
             const inputs = Array.from(activeGroup.querySelectorAll('input[type="radio"]'));
             const checkedIndex = inputs.findIndex(r => r.checked);
             
-            // Aşağı Ok Tuşu
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 if (checkedIndex < labels.length - 1) {
                     labels[checkedIndex + 1].click();
                 }
             } 
-            // Yukarı Ok Tuşu
             else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (checkedIndex > 0) {
                     labels[checkedIndex - 1].click();
                 }
             }
-            // Enter Tuşu (En Kritik Bölüm: Tarayıcının Form Gönderme Refleksini Durdurur)
             else if (e.key === 'Enter') {
-                e.preventDefault(); // NATIVE SUBMIT BLOKE EDİLDİ
+                e.preventDefault(); 
                 
                 if (idx < groups.length - 1) {
-                    // Bir alt güne zıpla
                     idx++;
                     window.parent._activeGroupIdx = idx;
                     
-                    // Renkleri ve odağı anında kaydır
                     groups.forEach((g, gIdx) => {
                         if (gIdx === idx) {
                             g.style.borderLeftColor = "#3b82f6";
@@ -439,7 +507,6 @@ elif st.session_state.step == "select_daily":
                         }
                     });
                 } else {
-                    // Ay bitti! Formun asıl kaydetme butonunu bul ve tıkla
                     let submitBtn = window.parent.document.querySelector('button[data-testid="baseButton-secondaryFormSubmit"]');
                     if (!submitBtn) {
                         const buttons = Array.from(window.parent.document.querySelectorAll('button'));
@@ -451,12 +518,11 @@ elif st.session_state.step == "select_daily":
                     }
                 }
             }
-        }, true); // "true" capture phase kullanarak Enter'ı tarayıcıdan önce ele geçiririz.
+        }, true); 
     }
     </script>
     """, height=0)
 
-    # --- KRONOLOJİK YANDAN SEÇİCİ (SIDEBAR NAVİGASYONU) ---
     st.sidebar.title("📅 Aylık Seçici")
     st.sidebar.write("Geçmek istediğiniz aya doğrudan tıklayabilirsiniz:")
     
@@ -489,7 +555,6 @@ elif st.session_state.step == "select_daily":
                         st.session_state.current_month_idx = idx
                         st.rerun()
 
-    # --- ANA SEÇİM ALANI ---
     st.title("⚡ Seri İş Seçim Ekranı")
     progress = len(st.session_state.selected_jobs) / len(dates)
     st.progress(progress)
@@ -497,7 +562,6 @@ elif st.session_state.step == "select_daily":
     
     st.info("⌨️ **Klavye Navigasyonu:** İş seçimleri arasında gezinmek için **Aşağı/Yukarı Ok** tuşlarını kullanın. Seçimi sabitleyip bir alt güne otomatik kaymak için **Enter** tuşuna basın.")
     
-    # TOPLU FORM YAPISI (0ms RERUN GECİKMESİ İÇİN)
     with st.form(key=f"month_form_{active_year}_{active_month}"):
         form_selections = {}
         
@@ -522,14 +586,12 @@ elif st.session_state.step == "select_daily":
             form_selections[d_str] = selected_row
             st.write("---")
             
-        # Form Submit Butonu
         is_last_month = (current_month_idx == len(unique_months) - 1)
         submit_label = "🎉 Örnek İş Seçimine Geç" if is_last_month else "Bu Ayın Seçimlerini Kaydet ve İlerle ➡️ (Enter)"
         
         submitted = st.form_submit_button(submit_label, use_container_width=True, type="primary")
         
         if submitted:
-            # Seçimleri kaydet
             for d_str, r_idx in form_selections.items():
                 st.session_state.selected_jobs[d_str] = r_idx
                 
@@ -544,7 +606,7 @@ elif st.session_state.step == "select_daily":
             st.session_state.current_month_idx -= 1
             st.rerun()
 
-# ----------------- ADIM 4: ÖRNEK İŞ SEÇİMİ (SARI BOYAMA) -----------------
+# ----------------- ADIM 5: ÖRNEK İŞ SEÇİMİ (SARI BOYAMA) -----------------
 elif st.session_state.step == "select_samples":
     st.title("🎯 Örnek İşlerin Belirlenmesi")
     
@@ -552,11 +614,10 @@ elif st.session_state.step == "select_samples":
     df = st.session_state.raw_data
     selected_df = df[df['row_idx'].isin(selected_indices)].copy()
     
-    # Tarih sıralı listeleme
     selected_df['temp_sort_date'] = pd.to_datetime(selected_df['date'], format='%d.%m.%Y', errors='coerce')
     selected_df = selected_df.sort_values('temp_sort_date')
     
-    st.write(f"Toplam **{len(selected_df)}** gün/iş kronolojik olarak filtrelendi.")
+    st.write(f"Toplam **{len(selected_df)}** gün/iş filtrelendi.")
     st.info("Otoriteye örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
     
     selected_df['Sarı Boya (Örnek İş)'] = False
@@ -592,11 +653,10 @@ elif st.session_state.step == "select_samples":
                 st.session_state.step = "download"
                 st.rerun()
 
-# ----------------- ADIM 5: İNDİRME VE SAĞDAN SOLA THY UÇAĞI ANİMASYONU EKRANI -----------------
+# ----------------- ADIM 6: İNDİRME EKRANI -----------------
 elif st.session_state.step == "download":
     st.title("🏆 Raporunuz Hazır!")
     
-    # --- JAVASCRIPT: GERÇEK UÇAK RESMİ İLE SAĞDAN SOLA UÇUŞ ANİMASYONU ---
     if plane_base64:
         plane_html = f'<img class="thy-plane-img" src="{plane_base64}">'
         plane_css = """
@@ -647,12 +707,12 @@ elif st.session_state.step == "download":
     </script>
     """, height=0)
 
-    st.success("Tebrikler! Seçtiğiniz ayarlara göre Excel dosyası, şablon yapısı %100 korunarak başarıyla oluşturuldu.")
+    st.success("Tebrikler! Seçtiğiniz ayarlara ve temizlik filtrelerinize göre Excel dosyası, format yapısı %100 korunarak başarıyla oluşturuldu.")
     
     st.download_button(
         label="📥 Düzenlenmiş Excel Dosyasını İndir (.xlsx)",
         data=st.session_state.final_excel,
-        file_name=st.session_state.original_filename, # Yüklenen dosyanın orijinal adı ile indirilir.
+        file_name=st.session_state.original_filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )

@@ -22,8 +22,8 @@ def get_base64_image(file_path):
     return ""
 
 # Görselleri klasörden oku
-plane_base64 = get_base64_image("plane.jpg")
-hangar_base64 = get_base64_image("background.jpg")
+plane_base64 = get_base64_image("pngegg.jpg")
+hangar_base64 = get_base64_image("2-c-Turkish-Technic-scaled.jpg")
 
 # CSS ile Arka Planı Hangar Yapma ve Modern Yüksek Okunabilirlik Temalandırması
 bg_css = ""
@@ -37,7 +37,7 @@ if hangar_base64:
         background-attachment: fixed;
     }}
     [data-testid="stAppViewContainer"] {{
-        background-color: rgba(15, 23, 42, 0.2) !important; /* Karartma çok hafifletildi, arka plan cam gibi net */
+        background-color: rgba(15, 23, 42, 0.2) !important; /* Karartma çok hafifletildi, arka plan net */
         backdrop-filter: none !important; /* Blur tamamen kaldırıldı */
         -webkit-backdrop-filter: none !important;
     }}
@@ -166,11 +166,9 @@ def load_excel_data(file_bytes):
             date_val = row_vals[1]
             standard_date_str = ""
             if date_val:
-                # Eğer veri zaten bir datetime nesnesi ise
                 if hasattr(date_val, 'strftime'): 
                     standard_date_str = date_val.strftime('%d.%m.%Y')
                 else: 
-                    # String ise en yaygın formatları deneyerek parse et
                     date_str = str(date_val).strip()
                     parsed_dt = None
                     for fmt in ('%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
@@ -253,9 +251,8 @@ if st.session_state.step == "upload":
                     dt = pd.to_datetime(d, format='%d.%m.%Y')
                     parsed_dates.append((dt, d))
                 except:
-                    parsed_dates.append((pd.Timestamp.max, d)) # Hatalı tarihleri en sona atar
+                    parsed_dates.append((pd.Timestamp.max, d))
             
-            # Kronolojik sırala
             parsed_dates.sort(key=lambda x: x[0])
             sorted_unique_dates = [x[1] for x in parsed_dates]
             
@@ -358,14 +355,13 @@ elif st.session_state.step == "select_daily":
     """, height=0)
 
     # --- KRONOLOJİK GRUPLANDIRMA (SIDEBAR HAZIRLIĞI) ---
-    # Tarihleri Yıl -> Ay bazında gruplayalım
     grouped = defaultdict(lambda: defaultdict(list))
     for idx, d_str in enumerate(dates):
         try:
             parts = d_str.split('.')
             day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
         except:
-            year, month = 9999, 12 # Fallback
+            year, month = 9999, 12
         grouped[year][month].append((idx, d_str))
         
     MONTH_NAMES = {
@@ -373,34 +369,41 @@ elif st.session_state.step == "select_daily":
         7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
     }
 
-    # Aktif günü bulup yılına göre expander durumunu ayarla
+    # Aktif günü bulup yılına ve ayına göre expander durumunu ayarla
     try:
-        active_year = int(current_date.split('.')[2])
+        parts = current_date.split('.')
+        active_year = int(parts[2])
+        active_month = int(parts[1])
     except:
         active_year = None
+        active_month = None
 
-    # --- SOL SÜTUN (YANDAKİ NAVİGASYON) ---
+    # --- SOL SÜTUN (YANDAKİ NAVİGASYON - NESTED EXPANDERS) ---
     st.sidebar.title("📅 Gün Seçici")
     
     for year in sorted(grouped.keys()):
-        # Yalnızca aktif tarih ile eşleşen yılın expander'ı otomatik açılır
-        is_expanded = (year == active_year)
-        with st.sidebar.expander(f"📁 {year} Yılı", expanded=is_expanded):
+        is_year_expanded = (year == active_year)
+        # Yıl Expander'ı (Sidebar içinde)
+        with st.sidebar.expander(f"📁 {year} Yılı", expanded=is_year_expanded):
             for month in sorted(grouped[year].keys()):
-                st.markdown(f"**{MONTH_NAMES.get(month, month)}**")
-                for idx, d_str in grouped[year][month]:
-                    status_icon = "🟢" if d_str in st.session_state.selected_jobs else "⚪"
-                    
-                    if idx == current_idx:
-                        label = f"👉 {d_str} (Aktif)"
-                        if st.sidebar.button(label, key=f"nav_btn_{d_str}", use_container_width=True, type="primary"):
-                            st.session_state.current_date_idx = idx
-                            st.rerun()
-                    else:
-                        label = f"{status_icon} {d_str}"
-                        if st.sidebar.button(label, key=f"nav_btn_{d_str}", use_container_width=True):
-                            st.session_state.current_date_idx = idx
-                            st.rerun()
+                is_month_expanded = (year == active_year and month == active_month)
+                # Ay Expander'ı (Yıl expander'ının İÇİNDE - NOT: st.sidebar kullanılmaz)
+                with st.expander(f"📅 {MONTH_NAMES.get(month, month)}", expanded=is_month_expanded):
+                    for idx, d_str in grouped[year][month]:
+                        status_icon = "🟢" if d_str in st.session_state.selected_jobs else "⚪"
+                        
+                        # Butonları çizerken st.sidebar.button DEĞİL, normal st.button kullanıyoruz.
+                        # Böylece elemanlar sidebar'ın en altına uçmak yerine tam olarak Ay klasörünün içine yerleşir.
+                        if idx == current_idx:
+                            label = f"👉 {d_str} (Aktif)"
+                            if st.button(label, key=f"nav_btn_{d_str}", use_container_width=True, type="primary"):
+                                st.session_state.current_date_idx = idx
+                                st.rerun()
+                        else:
+                            label = f"{status_icon} {d_str}"
+                            if st.button(label, key=f"nav_btn_{d_str}", use_container_width=True):
+                                st.session_state.current_date_idx = idx
+                                st.rerun()
 
     # --- SAĞ SÜTUN (ANA EKRAN) ---
     st.title("⚡ Seri İş Seçim Ekranı")
@@ -457,7 +460,6 @@ elif st.session_state.step == "select_samples":
     df = st.session_state.raw_data
     selected_df = df[df['row_idx'].isin(selected_indices)].copy()
     
-    # İnceleme tablosundaki verileri de kronolojik olarak sıralayalım
     selected_df['temp_sort_date'] = pd.to_datetime(selected_df['date'], format='%d.%m.%Y', errors='coerce')
     selected_df = selected_df.sort_values('temp_sort_date')
     
@@ -503,7 +505,6 @@ elif st.session_state.step == "download":
     
     # --- JAVASCRIPT: GERÇEK UÇAK RESMİ İLE SAĞDAN SOLA UÇUŞ ANİMASYONU ---
     if plane_base64:
-        # scaleX(-1) aynalama kaldırıldı; uçağın burnu zaten doğal olarak sola (gideceği yöne) bakıyor.
         plane_html = f'<img class="thy-plane-img" src="{plane_base64}">'
         plane_css = """
         .thy-plane-img {
@@ -558,7 +559,7 @@ elif st.session_state.step == "download":
     st.download_button(
         label="📥 Düzenlenmiş Excel Dosyasını İndir (.xlsx)",
         data=st.session_state.final_excel,
-        file_name=st.session_state.original_filename, # Yüklenen dosyanın orijinal adı ile kaydedilir
+        file_name=st.session_state.original_filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )

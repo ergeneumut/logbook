@@ -292,7 +292,7 @@ def generate_output_excel(original_bytes, selected_row_indices, yellow_row_indic
 # ----------------- ADIM 1: DOSYA YÜKLEME -----------------
 if st.session_state.step == "upload":
     st.title("✈️ Logbook Düzenleme Otomasyonu")
-    st.subheader("Orijinal Excel (.xlsx) Dosyanızı Yükleyin")
+    st.subheader("Excel (.xlsx) Dosyanızı Yükleyin")
     
     uploaded_file = st.file_uploader("Dosya Seçin", type=["xlsx"])
     
@@ -313,7 +313,7 @@ if st.session_state.step == "upload":
 # ----------------- ADIM 2: ÖN FİLTRELEME VE TEMİZLİK -----------------
 elif st.session_state.step == "filter_data":
     st.title("🧹 Gereksiz İşleri Ayıklama (Filtreleme)")
-    st.write("Listeden tamamen çıkarılması gereken, çok kısa süren veya belirli kriterlere (Yetki, ATA, Check Type) sahip olan işleri seçerek Excel tablosundan kökten silebilirsiniz.")
+    st.write("Listeden tamamen çıkarılması gereken, çok kısa süren veya belirli kriterlere (Yetki, ATA, Check Type) sahip olan işleri seçerek Excel tablosundan silebilirsiniz.")
 
     df = st.session_state.raw_data
 
@@ -324,14 +324,14 @@ elif st.session_state.step == "filter_data":
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("### 🚫 Silinecek Kategoriler")
-        sel_privs = st.multiselect("Silinecek 'Privilege Used' Yetkilerini Seçin:", options=privileges)
+        sel_privs = st.multiselect("Silinecek Yetkilerini Seçin:", options=privileges)
         sel_atas = st.multiselect("Silinecek 'ATA Chapter' Bölümlerini Seçin:", options=atas)
         sel_checks = st.multiselect("Silinecek 'Check Type' Türlerini Seçin:", options=check_types)
 
     with col2:
         st.markdown("### ⏱️ Süre Filtresi")
         st.write("Süresi girilen dakikadan **daha az olan** tüm işler silinecektir.")
-        min_minutes = st.number_input("Maksimum Süre Sınırı (Dakika) - Örn: 30:", min_value=0, max_value=600, value=0, step=15)
+        min_minutes = st.number_input("Örn: 30:", min_value=0, max_value=600, value=0, step=15)
 
     mask = df['privilege'].isin(sel_privs) | df['ata'].isin(sel_atas) | df['check_type'].isin(sel_checks)
     if min_minutes > 0:
@@ -342,7 +342,7 @@ elif st.session_state.step == "filter_data":
 
     if len(to_delete) > 0:
         st.error(f"⚠️ DİKKAT: Seçimlerinize göre toplam **{len(to_delete)} adet iş** Excel listesinden ve sistemden kalıcı olarak SİLİNECEKTİR.")
-        st.markdown("**Silinecek İşlerin Ön İzlemesi (Süreler Dahil):**")
+        st.markdown("**Silinecek İşlerin Ön İzlemesi:**")
         
         def color_red(val):
             return 'color: #ff4b4b; background-color: #fee2e2;'
@@ -363,7 +363,7 @@ elif st.session_state.step == "filter_data":
                     st.session_state.unique_dates = dates
                     st.session_state.unique_months = months
                     
-                    st.session_state.filter_msg = f"✅ Temizlik Başarılı! Başlangıçta {len(df)} iş/gün vardı, {len(to_delete)} tanesi silindi. Kalan iş sayısı: {len(to_keep)}."
+                    st.session_state.filter_msg = f"✅ Temizlik Başarılı! Başlangıçta {len(df)} iş/gün vardı, {len(to_delete)} tanesi silindi. Kalan iş/gün sayısı: {len(to_keep)}."
                     st.session_state.step = "choose_mode"
                     st.rerun()
         with c2:
@@ -411,7 +411,7 @@ elif st.session_state.step == "choose_mode":
             
     with col2:
         st.info("🖐️ 2. Seçenek: Manuel (Kontrollü)")
-        st.write("**Tek tek elle seçerek devam edilir.**")
+        st.write("**Tek tek elle iş seçerek devam edilir.**")
         st.write("Tüm günler için o güne ait işler listelenir. Hangi işin tabloda kalacağına okuyarak bizzat siz karar verirsiniz.")
         if st.button("Manuel Seçime Başla", use_container_width=True):
             st.session_state.selected_jobs = {} # Eski hafızayı tamamen temizle!
@@ -579,7 +579,7 @@ elif st.session_state.step == "select_daily":
     st.progress(progress)
     st.subheader(f"Dönem: {MONTH_NAMES.get(int(active_month), active_month)} {active_year}")
     
-    st.info("⌨️ **Klavye Navigasyonu:** İş seçimleri arasında gezinmek için **Aşağı/Yukarı Ok** tuşlarını kullanın. Seçimi sabitleyip bir alt güne otomatik kaymak için **Enter** tuşuna basın.")
+    st.info("⌨️ **Klavye Navigasyonu:** İş seçimleri arasında gezinmek için **Aşağı/Yukarı Ok** tuşlarını kullanın. Seçimi yapıp bir alt güne kaymak için **Enter** tuşuna basın.")
     
     with st.form(key=f"month_form_{active_year}_{active_month}"):
         form_selections = {}
@@ -638,7 +638,7 @@ elif st.session_state.step == "select_samples":
     selected_df = selected_df.sort_values('temp_sort_date')
     
     st.write(f"Toplam **{len(selected_df)}** gün/iş filtrelendi.")
-    st.info("Otoriteye örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
+    st.info("Örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
     
     selected_df['Sarı Boya (Örnek İş)'] = False
     

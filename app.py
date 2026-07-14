@@ -23,8 +23,8 @@ def get_base64_image(file_path):
     return ""
 
 # Görselleri klasörden oku
-plane_base64 = get_base64_image("pngegg.jpg")
-hangar_base64 = get_base64_image("2-c-Turkish-Technic-scaled.jpg")
+plane_base64 = get_base64_image("plane.jpg")
+hangar_base64 = get_base64_image("background.jpg")
 
 # CSS Temalandırma
 bg_css = ""
@@ -270,7 +270,7 @@ def generate_output_excel(original_bytes, selected_row_indices, yellow_row_indic
 # ----------------- ADIM 1: DOSYA YÜKLEME -----------------
 if st.session_state.step == "upload":
     st.title("✈️ Logbook Düzenleme Otomasyonu")
-    st.subheader("Orijinal Excel (.xlsx) Dosyanızı Yükleyin")
+    st.subheader("Excel (.xlsx) Dosyanızı Yükleyin")
     
     uploaded_file = st.file_uploader("Dosya Seçin", type=["xlsx"])
     
@@ -618,7 +618,7 @@ elif st.session_state.step == "select_samples":
     selected_df = selected_df.sort_values('temp_sort_date')
     
     st.write(f"Toplam **{len(selected_df)}** gün/iş filtrelendi.")
-    st.info("Otoriteye örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
+    st.info("Örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
     
     selected_df['Sarı Boya (Örnek İş)'] = False
     

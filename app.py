@@ -23,8 +23,8 @@ def get_base64_image(file_path):
     return ""
 
 # Görselleri klasörden oku
-plane_base64 = get_base64_image("pngegg.jpg")
-hangar_base64 = get_base64_image("2-c-Turkish-Technic-scaled.jpg")
+plane_base64 = get_base64_image("plane.jpg")
+hangar_base64 = get_base64_image("background.jpg")
 
 # CSS Temalandırma
 bg_css = ""

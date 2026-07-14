@@ -22,8 +22,8 @@ def get_base64_image(file_path):
     return ""
 
 # Görselleri klasörden oku
-plane_base64 = get_base64_image("plane.jpg")
-hangar_base64 = get_base64_image("background.jpg")
+plane_base64 = get_base64_image("pngegg.jpg")
+hangar_base64 = get_base64_image("2-c-Turkish-Technic-scaled.jpg")
 
 # CSS ile Arka Planı Hangar Yapma ve Modern Yüksek Okunabilirlik Temalandırması
 bg_css = ""
@@ -37,8 +37,8 @@ if hangar_base64:
         background-attachment: fixed;
     }}
     [data-testid="stAppViewContainer"] {{
-        background-color: rgba(15, 23, 42, 0.2) !important; /* Karartma çok hafifletildi, arka plan net */
-        backdrop-filter: none !important; /* Blur tamamen kaldırıldı */
+        background-color: rgba(15, 23, 42, 0.2) !important;
+        backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }}
     """
@@ -89,7 +89,7 @@ st.markdown(f"""
         border-color: #94a3b8 !important;
     }}
     
-    /* 4. SEÇENEK SEÇİM EKRANINDAKİ (CHOOSE MODE) KUTUCUKLARIN BEYAZ VE BELİRGİN YAPILMASI */
+    /* 4. SEÇENEK SEÇİM EKRANINDAKİ KUTUCUKLARIN BEYAZ VE BELİRGİN YAPILMASI */
     div[data-testid="column"] {{
         background-color: #ffffff !important;
         padding: 2.5rem !important;
@@ -146,8 +146,10 @@ if 'raw_data' not in st.session_state:
     st.session_state.raw_data = None
 if 'unique_dates' not in st.session_state:
     st.session_state.unique_dates = []
-if 'current_date_idx' not in st.session_state:
-    st.session_state.current_date_idx = 0
+if 'unique_months' not in st.session_state:
+    st.session_state.unique_months = [] # [(Yıl, Ay), (Yıl, Ay)...]
+if 'current_month_idx' not in st.session_state:
+    st.session_state.current_month_idx = 0
 if 'original_file_bytes' not in st.session_state:
     st.session_state.original_file_bytes = None
 if 'original_filename' not in st.session_state:
@@ -180,7 +182,7 @@ def load_excel_data(file_bytes):
                     if parsed_dt is not None and not pd.isna(parsed_dt):
                         standard_date_str = parsed_dt.strftime('%d.%m.%Y')
                     else:
-                        standard_date_str = date_str # Fallback
+                        standard_date_str = date_str
             
             data.append({
                 "row_idx": r_idx,
@@ -230,7 +232,7 @@ def generate_output_excel(original_bytes, selected_row_indices, yellow_row_indic
 # ----------------- ADIM 1: DOSYA YÜKLEME -----------------
 if st.session_state.step == "upload":
     st.title("✈️ Logbook Düzenleme Otomasyonu")
-    st.subheader("Excel (.xlsx) Dosyanızı Yükleyin")
+    st.subheader("Orijinal Excel (.xlsx) Dosyanızı Yükleyin")
     
     if not hangar_base64:
         st.warning("İpucu: Arka planın hangar resmi olması için '2-c-Turkish-Technic-scaled.jpg' dosyasını bu proje klasörüne kopyalayın.")
@@ -244,7 +246,7 @@ if st.session_state.step == "upload":
             file_bytes = uploaded_file.getvalue()
             df = load_excel_data(file_bytes)
             
-            # Tarihleri kronolojik (Yıl -> Ay -> Gün) olarak sıralama mekanizması
+            # Tarihleri kronolojik sırala
             parsed_dates = []
             for d in df['date'].unique():
                 try:
@@ -256,10 +258,20 @@ if st.session_state.step == "upload":
             parsed_dates.sort(key=lambda x: x[0])
             sorted_unique_dates = [x[1] for x in parsed_dates]
             
+            # Benzersiz Yıl-Ay kombinasyonlarını kronolojik olarak çıkar
+            unique_months = []
+            for d in sorted_unique_dates:
+                parts = d.split('.')
+                if len(parts) == 3:
+                    yr, mn = parts[2], parts[1]
+                    if (yr, mn) not in unique_months:
+                        unique_months.append((yr, mn))
+            
             st.session_state.original_file_bytes = file_bytes
             st.session_state.original_filename = uploaded_file.name
             st.session_state.raw_data = df
             st.session_state.unique_dates = sorted_unique_dates
+            st.session_state.unique_months = unique_months
             st.session_state.selected_jobs = {}
             st.session_state.step = "choose_mode"
             st.rerun()
@@ -290,63 +302,132 @@ elif st.session_state.step == "choose_mode":
         st.write("**Tek tek elle seçerek devam edilir.**")
         st.write("Tüm günler için o güne ait işler listelenir. Hangi işin tabloda kalacağına okuyarak bizzat siz karar verirsiniz.")
         if st.button("Manuel Seçime Başla", use_container_width=True):
-            st.session_state.current_date_idx = 0
+            st.session_state.current_month_idx = 0
             st.session_state.step = "select_daily"
             st.rerun()
 
-# ----------------- ADIM 3: MANUEL GÜNLÜK İŞ SEÇİMİ (KLAVYE DESTEKLİ) -----------------
+# ----------------- ADIM 3: GRUPLANDIRILMIŞ SERİ MANUEL SEÇİM (0ms GECİKME) -----------------
 elif st.session_state.step == "select_daily":
     df = st.session_state.raw_data
     dates = st.session_state.unique_dates
-    current_idx = st.session_state.current_date_idx
-    current_date = dates[current_idx]
+    unique_months = st.session_state.unique_months
     
-    # --- JAVASCRIPT: OK TUŞLARI + ENTER NAVİGASYONU VE SIDEBAR SCROLL ---
+    current_month_idx = st.session_state.current_month_idx
+    active_year, active_month = unique_months[current_month_idx]
+    
+    # Aktif aya ait günleri filtrele
+    month_dates = [d for d in dates if d.endswith(f"{active_month}.{active_year}")]
+    
+    # --- JAVASCRIPT: FORM İÇİ AKILLI NAVİGASYON (OK TUŞLARI + ENTER) ---
     components.html("""
     <script>
     const doc = window.parent.document;
     
-    // 1. Sol menüdeki aktif günü ortala
-    const sidebar = doc.querySelector('[data-testid="stSidebar"]');
-    if (sidebar) {
-        const allElements = Array.from(sidebar.querySelectorAll('*'));
-        const activeElement = allElements.find(el => el.textContent && el.textContent.includes('👉'));
-        if (activeElement) {
-            activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+    // Aktif odak indeksini sıfırla veya başlat
+    window.parent._activeGroupIdx = 0;
+    
+    function highlightActiveGroup() {
+        const groups = Array.from(doc.querySelectorAll('div[data-testid="stRadio"]'));
+        const activeIdx = window.parent._activeGroupIdx || 0;
+        
+        groups.forEach((group, idx) => {
+            if (idx === activeIdx) {
+                group.style.borderLeft = "6px solid #3b82f6";
+                group.style.backgroundColor = "#f1f5f9";
+                group.style.padding = "12px 18px";
+                group.style.borderRadius = "0 12px 12px 0";
+                group.style.transition = "all 0.15s ease-in-out";
+                group.style.boxShadow = "0 4px 12px rgba(0,0,0,0.05)";
+                
+                // Yumuşakça ekrana ortala
+                group.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Klavye kontrolü için ilk radio dairesine odaklan
+                const firstInput = group.querySelector('input[type="radio"]');
+                if (firstInput) firstInput.focus();
+            } else {
+                group.style.borderLeft = "none";
+                group.style.backgroundColor = "transparent";
+                group.style.padding = "0px";
+                group.style.boxShadow = "none";
+            }
+        });
     }
+    
+    // Elemanların render olmasını bekle
+    const checkExist = setInterval(function() {
+        const groups = doc.querySelectorAll('div[data-testid="stRadio"]');
+        if (groups.length) {
+            highlightActiveGroup();
+            clearInterval(checkExist);
+        }
+    }, 100);
 
-    // 2. Klavye Dinleyicisi
-    if (!window.parent._keyboardListenerAdded) {
-        window.parent._keyboardListenerAdded = true;
+    // Klavye dinleyicisini yalnızca bir kere kaydet
+    if (!window.parent._groupedKeyboardListener) {
+        window.parent._groupedKeyboardListener = true;
         doc.addEventListener('keydown', function(e) {
+            // Text input alanlarında yazıyorsa klavye kontrolünü durdur
             if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
             
-            const radioGroup = doc.querySelector('div[data-testid="stRadio"]');
+            const groups = Array.from(doc.querySelectorAll('div[data-testid="stRadio"]'));
+            if (groups.length === 0) return;
             
-            if (radioGroup) {
-                const radios = Array.from(radioGroup.querySelectorAll('input[type="radio"]'));
-                const checkedIndex = radios.findIndex(r => r.checked);
-                
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    if (checkedIndex < radios.length - 1) {
-                        radios[checkedIndex + 1].click();
-                    }
-                } 
-                else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    if (checkedIndex > 0) {
-                        radios[checkedIndex - 1].click();
-                    }
+            let idx = window.parent._activeGroupIdx || 0;
+            const activeGroup = groups[idx];
+            if (!activeGroup) return;
+            
+            const radios = Array.from(activeGroup.querySelectorAll('input[type="radio"]'));
+            const checkedIndex = radios.findIndex(r => r.checked);
+            
+            // Aşağı Ok -> Aynı günde bir sonraki iş kaydına geçer
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (checkedIndex < radios.length - 1) {
+                    radios[checkedIndex + 1].click();
+                }
+            } 
+            // Yukarı Ok -> Aynı günde bir önceki iş kaydına geçer
+            else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (checkedIndex > 0) {
+                    radios[checkedIndex - 1].click();
                 }
             }
-            
-            if (e.key === 'Enter') {
-                const buttons = Array.from(doc.querySelectorAll('button'));
-                const nextBtn = buttons.find(btn => btn.textContent.includes('Sonraki Gün') || btn.textContent.includes('Örnek İş Seçimine Geç'));
-                if (nextBtn) {
-                    nextBtn.click();
+            // Enter -> Seçimi onaylar ve doğrudan bir alt güne (gruba) zıplar
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (idx < groups.length - 1) {
+                    idx++;
+                    window.parent._activeGroupIdx = idx;
+                    
+                    // Odaklanma stilini güncelle
+                    groups.forEach((g, gIdx) => {
+                        if (gIdx === idx) {
+                            g.style.borderLeft = "6px solid #3b82f6";
+                            g.style.backgroundColor = "#f1f5f9";
+                            g.style.padding = "12px 18px";
+                            g.style.borderRadius = "0 12px 12px 0";
+                            g.style.transition = "all 0.15s ease-in-out";
+                            g.style.boxShadow = "0 4px 12px rgba(0,0,0,0.05)";
+                            g.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            
+                            const firstInput = g.querySelector('input[type="radio"]');
+                            if (firstInput) firstInput.focus();
+                        } else {
+                            g.style.borderLeft = "none";
+                            g.style.backgroundColor = "transparent";
+                            g.style.padding = "0px";
+                            g.style.boxShadow = "none";
+                        }
+                    });
+                } else {
+                    // Ayın son günündeysek, "Kaydet ve İlerle" form submit butonuna odaklan ve tıkla
+                    const submitBtn = doc.querySelector('button[data-testid="baseButton-secondaryFormSubmit"]');
+                    if (submitBtn) {
+                        submitBtn.focus();
+                        submitBtn.click();
+                    }
                 }
             }
         });
@@ -354,103 +435,98 @@ elif st.session_state.step == "select_daily":
     </script>
     """, height=0)
 
-    # --- KRONOLOJİK GRUPLANDIRMA (SIDEBAR HAZIRLIĞI) ---
-    grouped = defaultdict(lambda: defaultdict(list))
-    for idx, d_str in enumerate(dates):
-        try:
-            parts = d_str.split('.')
-            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
-        except:
-            year, month = 9999, 12
-        grouped[year][month].append((idx, d_str))
-        
+    # --- KRONOLOJİK YANDAN SEÇİCİ (SIDEBAR NAVİGASYONU) ---
+    st.sidebar.title("📅 Aylık Seçici")
+    st.sidebar.write("İstediğiniz aya tıklayarak hızlıca geçiş yapabilirsiniz:")
+    
     MONTH_NAMES = {
         1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
         7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
     }
 
-    # Aktif günü bulup yılına ve ayına göre expander durumunu ayarla
-    try:
-        parts = current_date.split('.')
-        active_year = int(parts[2])
-        active_month = int(parts[1])
-    except:
-        active_year = None
-        active_month = None
+    # Sidebar gruplama yapısı
+    sidebar_groups = defaultdict(list)
+    for idx, (yr, mn) in enumerate(unique_months):
+        sidebar_groups[yr].append((idx, mn))
+        
+    for yr in sorted(sidebar_groups.keys()):
+        is_year_expanded = (yr == active_year)
+        with st.sidebar.expander(f"📁 {yr} Yılı", expanded=is_year_expanded):
+            for idx, mn in sidebar_groups[yr]:
+                month_name = MONTH_NAMES.get(int(mn), mn)
+                
+                # Ayın günleri kontrol edilerek tamamlama ikonu ayarlanır
+                month_dates_list = [d for d in dates if d.endswith(f"{mn}.{yr}")]
+                is_month_complete = all(d in st.session_state.selected_jobs for d in month_dates_list)
+                status_icon = "🟢" if is_month_complete else "⚪"
+                
+                btn_label = f"{status_icon} {month_name}"
+                if idx == current_month_idx:
+                    btn_label = f"👉 {month_name} (Aktif)"
+                    if st.button(btn_label, key=f"side_btn_{yr}_{mn}", use_container_width=True, type="primary"):
+                        st.session_state.current_month_idx = idx
+                        st.rerun()
+                else:
+                    if st.button(btn_label, key=f"side_btn_{yr}_{mn}", use_container_width=True):
+                        st.session_state.current_month_idx = idx
+                        st.rerun()
 
-    # --- SOL SÜTUN (YANDAKİ NAVİGASYON - NESTED EXPANDERS) ---
-    st.sidebar.title("📅 Gün Seçici")
-    
-    for year in sorted(grouped.keys()):
-        is_year_expanded = (year == active_year)
-        # Yıl Expander'ı (Sidebar içinde)
-        with st.sidebar.expander(f"📁 {year} Yılı", expanded=is_year_expanded):
-            for month in sorted(grouped[year].keys()):
-                is_month_expanded = (year == active_year and month == active_month)
-                # Ay Expander'ı (Yıl expander'ının İÇİNDE - NOT: st.sidebar kullanılmaz)
-                with st.expander(f"📅 {MONTH_NAMES.get(month, month)}", expanded=is_month_expanded):
-                    for idx, d_str in grouped[year][month]:
-                        status_icon = "🟢" if d_str in st.session_state.selected_jobs else "⚪"
-                        
-                        # Butonları çizerken st.sidebar.button DEĞİL, normal st.button kullanıyoruz.
-                        # Böylece elemanlar sidebar'ın en altına uçmak yerine tam olarak Ay klasörünün içine yerleşir.
-                        if idx == current_idx:
-                            label = f"👉 {d_str} (Aktif)"
-                            if st.button(label, key=f"nav_btn_{d_str}", use_container_width=True, type="primary"):
-                                st.session_state.current_date_idx = idx
-                                st.rerun()
-                        else:
-                            label = f"{status_icon} {d_str}"
-                            if st.button(label, key=f"nav_btn_{d_str}", use_container_width=True):
-                                st.session_state.current_date_idx = idx
-                                st.rerun()
-
-    # --- SAĞ SÜTUN (ANA EKRAN) ---
-    st.title("İş Seçimi")
+    # --- ANA SEÇİM ALANI ---
+    st.title("⚡ Seri İş Seçim Ekranı")
     progress = len(st.session_state.selected_jobs) / len(dates)
     st.progress(progress)
-    st.subheader(f"Tarih: {current_date} ({current_idx + 1} / {len(dates)})")
+    st.subheader(f"Dönem: {MONTH_NAMES.get(int(active_month), active_month)} {active_year}")
     
-    st.info("⌨️ **Klavye Kısayolları:** Seçenekler arasında gezmek için **Aşağı / Yukarı Ok** tuşlarını kullanın. Seçimi onaylayıp sonraki güne geçmek için **Enter** tuşuna basın.")
+    st.info("⌨️ **Ultra Hızlı Klavye Kısayolları:** Aynı gün içerisindeki işler arasında gezinmek için **Aşağı/Yukarı Ok** tuşlarını kullanın. Seçimi onaylayıp bir sonraki güne zıplamak için **Enter** tuşuna basın. Ay sonuna ulaştığınızda Enter'a basarak otomatik olarak kaydedebilirsiniz.")
     
-    daily_jobs = df[df['date'] == current_date]
-    
-    options = {}
-    for _, row in daily_jobs.iterrows():
-        label = f"W/O: {row['wo']} | Ref: {row['ref']} | Süre: {row['duration']} | Tanım: {row['description']}"
-        options[row['row_idx']] = label
+    # TOPLU FORM YAPISI (0ms RERUN GECİKMESİ İÇİN)
+    with st.form(key=f"month_form_{active_year}_{active_month}"):
+        form_selections = {}
         
-    default_val = list(options.keys())[0]
-    if current_date in st.session_state.selected_jobs:
-        default_val = st.session_state.selected_jobs[current_date]
-        
-    selected_row = st.radio(
-        "Kayıt listesinden kalacak olan 1 işi seçin:",
-        options=list(options.keys()),
-        format_func=lambda x: options[x],
-        index=list(options.keys()).index(default_val),
-        key=f"radio_{current_date}"
-    )
-    
-    st.session_state.selected_jobs[current_date] = selected_row
-    st.write("---")
-    
-    col_nav1, col_nav2 = st.columns([1, 1])
-    with col_nav1:
-        if current_idx > 0:
-            if st.button("⬅️ Önceki Gün", use_container_width=True):
-                st.session_state.current_date_idx -= 1
-                st.rerun()
+        for d_str in month_dates:
+            daily_jobs = df[df['date'] == d_str]
+            options = {}
+            for _, row in daily_jobs.iterrows():
+                label = f"W/O: {row['wo']} | Ref: {row['ref']} | Süre: {row['duration']} | Tanım: {row['description']}"
+                options[row['row_idx']] = label
                 
-    with col_nav2:
-        if current_idx == len(dates) - 1 and len(st.session_state.selected_jobs) == len(dates):
-            if st.button("🎉 Örnek İş Seçimine Geç (Enter)", type="primary", use_container_width=True):
+            # Önceden seçilmiş bir değer var mı kontrol et
+            default_val = list(options.keys())[0]
+            if d_str in st.session_state.selected_jobs:
+                default_val = st.session_state.selected_jobs[d_str]
+                
+            selected_row = st.radio(
+                f"📌 Gün: {d_str}",
+                options=list(options.keys()),
+                format_func=lambda x: options[x],
+                index=list(options.keys()).index(default_val),
+                key=f"radio_{d_str}"
+            )
+            form_selections[d_str] = selected_row
+            st.write("---")
+            
+        # Form Submit Butonu
+        is_last_month = (current_month_idx == len(unique_months) - 1)
+        submit_label = "🎉 Örnek İş Seçimine Geç" if is_last_month else "Bu Ayın Seçimlerini Kaydet ve İlerle ➡️ (Enter)"
+        
+        submitted = st.form_submit_button(submit_label, use_container_width=True, type="primary")
+        
+        if submitted:
+            # Form içindeki tüm seçimleri session_state'e kaydet
+            for d_str, r_idx in form_selections.items():
+                st.session_state.selected_jobs[d_str] = r_idx
+                
+            if is_last_month:
                 st.session_state.step = "select_samples"
-                st.rerun()
-        else:
-            if st.button("Sonraki Gün ➡️ (Enter)", type="primary", use_container_width=True):
-                st.session_state.current_date_idx += 1
-                st.rerun()
+            else:
+                st.session_state.current_month_idx += 1
+            st.rerun()
+
+    # Form dışı Navigasyon (Geri dönüş butonu)
+    if current_month_idx > 0:
+        if st.button("⬅️ Önceki Aya Geri Dön", use_container_width=True):
+            st.session_state.current_month_idx -= 1
+            st.rerun()
 
 # ----------------- ADIM 4: ÖRNEK İŞ SEÇİMİ (SARI BOYAMA) -----------------
 elif st.session_state.step == "select_samples":
@@ -460,11 +536,12 @@ elif st.session_state.step == "select_samples":
     df = st.session_state.raw_data
     selected_df = df[df['row_idx'].isin(selected_indices)].copy()
     
+    # Tarih sıralı listeleme
     selected_df['temp_sort_date'] = pd.to_datetime(selected_df['date'], format='%d.%m.%Y', errors='coerce')
     selected_df = selected_df.sort_values('temp_sort_date')
     
     st.write(f"Toplam **{len(selected_df)}** gün/iş kronolojik olarak filtrelendi.")
-    st.info("Örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
+    st.info("Otoriteye örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
     
     selected_df['Sarı Boya (Örnek İş)'] = False
     
@@ -503,7 +580,6 @@ elif st.session_state.step == "select_samples":
 elif st.session_state.step == "download":
     st.title("🏆 Raporunuz Hazır!")
     
-    # --- JAVASCRIPT: GERÇEK UÇAK RESMİ İLE SAĞDAN SOLA UÇUŞ ANİMASYONU ---
     if plane_base64:
         plane_html = f'<img class="thy-plane-img" src="{plane_base64}">'
         plane_css = """
@@ -559,7 +635,7 @@ elif st.session_state.step == "download":
     st.download_button(
         label="📥 Düzenlenmiş Excel Dosyasını İndir (.xlsx)",
         data=st.session_state.final_excel,
-        file_name=st.session_state.original_filename,
+        file_name=st.session_state.original_filename, # Yüklenen dosyanın orijinal adı ile indirilir.
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )

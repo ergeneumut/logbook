@@ -61,13 +61,11 @@ st.markdown(f"""
         margin-bottom: 4vh !important;
     }}
     
-    /* 2. ANA ALANDAKİ TÜM YAZILARI KESKİN SİYAH/KOYU GRİ YAPMA */
     h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown, [data-testid="stWidgetLabel"] p {{
         color: #1e293b !important;
         text-shadow: none !important;
     }}
     
-    /* 3. SOLDALİ TAB (SIDEBAR) BEYAZ ARKA PLAN VE SİYAH YAZILAR */
     [data-testid="stSidebar"] {{
         background-color: rgba(255, 255, 255, 0.98) !important;
         border-right: 1px solid rgba(0,0,0,0.1);
@@ -76,8 +74,7 @@ st.markdown(f"""
         color: #0f172a !important;
         text-shadow: none !important;
     }}
-    
-    /* Sidebar içindeki butonlar için soft gri zemin */
+
     [data-testid="stSidebar"] button {{
         background-color: #f1f5f9 !important;
         color: #0f172a !important;
@@ -88,7 +85,6 @@ st.markdown(f"""
         border-color: #94a3b8 !important;
     }}
     
-    /* 4. SEÇENEK SEÇİM EKRANINDAKİ (CHOOSE MODE) KUTUCUKLARIN BEYAZ VE BELİRGİN YAPILMASI */
     div[data-testid="column"] {{
         background-color: #ffffff !important;
         padding: 2.5rem !important;
@@ -97,7 +93,7 @@ st.markdown(f"""
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
     }}
     
-    /* Radyo butonu seçenek metinleri */
+
     .stRadio [data-testid="stMarkdownContainer"] {{
         font-size: 16px !important;
         font-weight: 500;

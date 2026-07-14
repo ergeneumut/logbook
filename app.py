@@ -294,7 +294,7 @@ if st.session_state.step == "upload":
     st.title("✈️ Logbook Düzenleme Otomasyonu")
     st.subheader("Excel (.xlsx) Dosyanızı Yükleyin")
     
-    uploaded_file = st.file_uploader("Dosya Seçin", type=["xlsx"])
+    uploaded_file = st.file_uploader("Dosya Seçin ve kısa bir süre bekleyin.", type=["xlsx"])
     
     if uploaded_file is not None:
         try:

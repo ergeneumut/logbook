@@ -9,7 +9,7 @@ import streamlit.components.v1 as components
 from collections import defaultdict
 
 # Sayfa Yapılandırması
-st.set_page_config(page_title="Logbook Otomasyonu", layout="wide")
+st.set_page_config(page_title="Hızlı Logbook Otomasyonu", layout="wide")
 
 # Görselleri Base64 formatına çeviren yardımcı fonksiyon
 def get_base64_image(file_path):
@@ -22,8 +22,8 @@ def get_base64_image(file_path):
     return ""
 
 # Görselleri klasörden oku
-plane_base64 = get_base64_image("plane.jpg")
-hangar_base64 = get_base64_image("background.jpg")
+plane_base64 = get_base64_image("pngegg.jpg")
+hangar_base64 = get_base64_image("2-c-Turkish-Technic-scaled.jpg")
 
 # CSS ile Arka Planı Hangar Yapma ve Modern Yüksek Okunabilirlik Temalandırması
 bg_css = ""
@@ -98,6 +98,16 @@ st.markdown(f"""
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
     }}
     
+    /* İş Seçim Satırları (Radio Grupları) için Geçişli ve Yumuşak Kenarlık Tasarımı */
+    div[data-testid="stRadio"] {{
+        border-left: 6px solid transparent;
+        padding: 15px !important;
+        border-radius: 8px;
+        transition: all 0.2s ease-in-out;
+        background-color: rgba(255, 255, 255, 0.5);
+        margin-bottom: 15px;
+    }}
+    
     /* Radyo butonu seçenek metinleri */
     .stRadio [data-testid="stMarkdownContainer"] {{
         font-size: 16px !important;
@@ -147,7 +157,7 @@ if 'raw_data' not in st.session_state:
 if 'unique_dates' not in st.session_state:
     st.session_state.unique_dates = []
 if 'unique_months' not in st.session_state:
-    st.session_state.unique_months = [] # [(Yıl, Ay), (Yıl, Ay)...]
+    st.session_state.unique_months = []
 if 'current_month_idx' not in st.session_state:
     st.session_state.current_month_idx = 0
 if 'original_file_bytes' not in st.session_state:
@@ -232,7 +242,7 @@ def generate_output_excel(original_bytes, selected_row_indices, yellow_row_indic
 # ----------------- ADIM 1: DOSYA YÜKLEME -----------------
 if st.session_state.step == "upload":
     st.title("✈️ Logbook Düzenleme Otomasyonu")
-    st.subheader("Excel (.xlsx) Dosyanızı Yükleyin")
+    st.subheader("Orijinal Excel (.xlsx) Dosyanızı Yükleyin")
     
     if not hangar_base64:
         st.warning("İpucu: Arka planın hangar resmi olması için '2-c-Turkish-Technic-scaled.jpg' dosyasını bu proje klasörüne kopyalayın.")
@@ -306,7 +316,7 @@ elif st.session_state.step == "choose_mode":
             st.session_state.step = "select_daily"
             st.rerun()
 
-# ----------------- ADIM 3: GRUPLANDIRILMIŞ SERİ MANUEL SEÇİM (0ms GECİKME) -----------------
+# ----------------- ADIM 3: GRUPLANDIRILMIŞ SERİ MANUEL SEÇİM (BUGSİZ / EN HIZLI SÜRÜM) -----------------
 elif st.session_state.step == "select_daily":
     df = st.session_state.raw_data
     dates = st.session_state.unique_dates
@@ -318,12 +328,12 @@ elif st.session_state.step == "select_daily":
     # Aktif aya ait günleri filtrele
     month_dates = [d for d in dates if d.endswith(f"{active_month}.{active_year}")]
     
-    # --- JAVASCRIPT: FORM İÇİ AKILLI NAVİGASYON (OK TUŞLARI + ENTER) ---
+    # --- JAVASCRIPT: BEYSİBOL SOPASI GİBİ SAĞLAM KLAVYE VE FOCUS MOTORU ---
     components.html("""
     <script>
     const doc = window.parent.document;
     
-    // Aktif odak indeksini sıfırla veya başlat
+    // Her yeni ay yüklendiğinde aktif odağı en başa çek
     window.parent._activeGroupIdx = 0;
     
     function highlightActiveGroup() {
@@ -332,119 +342,129 @@ elif st.session_state.step == "select_daily":
         
         groups.forEach((group, idx) => {
             if (idx === activeIdx) {
-                group.style.borderLeft = "6px solid #3b82f6";
+                group.style.borderLeftColor = "#3b82f6";
                 group.style.backgroundColor = "#f1f5f9";
-                group.style.padding = "12px 18px";
-                group.style.borderRadius = "0 12px 12px 0";
-                group.style.transition = "all 0.15s ease-in-out";
-                group.style.boxShadow = "0 4px 12px rgba(0,0,0,0.05)";
                 
-                // Yumuşakça ekrana ortala
+                // Seçilen grubu yumuşak bir şekilde ekrana ortala
                 group.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
-                // Klavye kontrolü için ilk radio dairesine odaklan
+                // İçindeki radio elementine odaklan
                 const firstInput = group.querySelector('input[type="radio"]');
                 if (firstInput) firstInput.focus();
             } else {
-                group.style.borderLeft = "none";
-                group.style.backgroundColor = "transparent";
-                group.style.padding = "0px";
-                group.style.boxShadow = "none";
+                group.style.borderLeftColor = "transparent";
+                group.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
             }
         });
     }
     
-    // Elemanların render olmasını bekle
-    const checkExist = setInterval(function() {
+    // Tıklanan günü algılama ve klavye odağını oraya senkronize etme
+    function setupClickListeners() {
+        const groups = Array.from(doc.querySelectorAll('div[data-testid="stRadio"]'));
+        groups.forEach((group, idx) => {
+            if (!group._hasClickListener) {
+                group._hasClickListener = true;
+                group.addEventListener('click', function() {
+                    window.parent._activeGroupIdx = idx;
+                    highlightActiveGroup();
+                });
+            }
+        });
+    }
+
+    // Elementlerin sayfada yüklenmesini bekle
+    const initTimer = setInterval(function() {
         const groups = doc.querySelectorAll('div[data-testid="stRadio"]');
         if (groups.length) {
             highlightActiveGroup();
-            clearInterval(checkExist);
+            setupClickListeners();
+            clearInterval(initTimer);
         }
     }, 100);
 
-    // Klavye dinleyicisini yalnızca bir kere kaydet
-    if (!window.parent._groupedKeyboardListener) {
-        window.parent._groupedKeyboardListener = true;
-        doc.addEventListener('keydown', function(e) {
-            // Text input alanlarında yazıyorsa klavye kontrolünü durdur
+    // KLAVYE YAKALAYICI (Duyarga Capture Modunda Çalışır: Enter tuşunu formdan önce kapar!)
+    if (!window.parent._groupedKeyboardListenerAdded) {
+        window.parent._groupedKeyboardListenerAdded = true;
+        
+        window.parent.document.addEventListener('keydown', function(e) {
+            // Bir input veya yazı alanındaysak klavyeyi serbest bırak
             if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
             
-            const groups = Array.from(doc.querySelectorAll('div[data-testid="stRadio"]'));
+            const groups = Array.from(window.parent.document.querySelectorAll('div[data-testid="stRadio"]'));
             if (groups.length === 0) return;
             
             let idx = window.parent._activeGroupIdx || 0;
             const activeGroup = groups[idx];
             if (!activeGroup) return;
             
-            const radios = Array.from(activeGroup.querySelectorAll('input[type="radio"]'));
-            const checkedIndex = radios.findIndex(r => r.checked);
+            const labels = Array.from(activeGroup.querySelectorAll('label'));
+            const inputs = Array.from(activeGroup.querySelectorAll('input[type="radio"]'));
+            const checkedIndex = inputs.findIndex(r => r.checked);
             
-            // Aşağı Ok -> Aynı günde bir sonraki iş kaydına geçer
+            // Aşağı Ok Tuşu
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                if (checkedIndex < radios.length - 1) {
-                    radios[checkedIndex + 1].click();
+                if (checkedIndex < labels.length - 1) {
+                    labels[checkedIndex + 1].click();
                 }
             } 
-            // Yukarı Ok -> Aynı günde bir önceki iş kaydına geçer
+            // Yukarı Ok Tuşu
             else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (checkedIndex > 0) {
-                    radios[checkedIndex - 1].click();
+                    labels[checkedIndex - 1].click();
                 }
             }
-            // Enter -> Seçimi onaylar ve doğrudan bir alt güne (gruba) zıplar
+            // Enter Tuşu (En Kritik Bölüm: Tarayıcının Form Gönderme Refleksini Durdurur)
             else if (e.key === 'Enter') {
-                e.preventDefault();
+                e.preventDefault(); // NATIVE SUBMIT BLOKE EDİLDİ
+                
                 if (idx < groups.length - 1) {
+                    // Bir alt güne zıpla
                     idx++;
                     window.parent._activeGroupIdx = idx;
                     
-                    // Odaklanma stilini güncelle
+                    // Renkleri ve odağı anında kaydır
                     groups.forEach((g, gIdx) => {
                         if (gIdx === idx) {
-                            g.style.borderLeft = "6px solid #3b82f6";
+                            g.style.borderLeftColor = "#3b82f6";
                             g.style.backgroundColor = "#f1f5f9";
-                            g.style.padding = "12px 18px";
-                            g.style.borderRadius = "0 12px 12px 0";
-                            g.style.transition = "all 0.15s ease-in-out";
-                            g.style.boxShadow = "0 4px 12px rgba(0,0,0,0.05)";
                             g.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             
                             const firstInput = g.querySelector('input[type="radio"]');
                             if (firstInput) firstInput.focus();
                         } else {
-                            g.style.borderLeft = "none";
-                            g.style.backgroundColor = "transparent";
-                            g.style.padding = "0px";
-                            g.style.boxShadow = "none";
+                            g.style.borderLeftColor = "transparent";
+                            g.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
                         }
                     });
                 } else {
-                    // Ayın son günündeysek, "Kaydet ve İlerle" form submit butonuna odaklan ve tıkla
-                    const submitBtn = doc.querySelector('button[data-testid="baseButton-secondaryFormSubmit"]');
+                    // Ay bitti! Formun asıl kaydetme butonunu bul ve tıkla
+                    let submitBtn = window.parent.document.querySelector('button[data-testid="baseButton-secondaryFormSubmit"]');
+                    if (!submitBtn) {
+                        const buttons = Array.from(window.parent.document.querySelectorAll('button'));
+                        submitBtn = buttons.find(btn => btn.textContent.includes('Kaydet ve İlerle') || btn.textContent.includes('Örnek İş Seçimine Geç'));
+                    }
                     if (submitBtn) {
                         submitBtn.focus();
                         submitBtn.click();
                     }
                 }
             }
-        });
+        }, true); // "true" capture phase kullanarak Enter'ı tarayıcıdan önce ele geçiririz.
     }
     </script>
     """, height=0)
 
     # --- KRONOLOJİK YANDAN SEÇİCİ (SIDEBAR NAVİGASYONU) ---
     st.sidebar.title("📅 Aylık Seçici")
-    st.sidebar.write("İstediğiniz aya tıklayarak hızlıca geçiş yapabilirsiniz:")
+    st.sidebar.write("Geçmek istediğiniz aya doğrudan tıklayabilirsiniz:")
     
     MONTH_NAMES = {
         1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran',
         7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'
     }
 
-    # Sidebar gruplama yapısı
     sidebar_groups = defaultdict(list)
     for idx, (yr, mn) in enumerate(unique_months):
         sidebar_groups[yr].append((idx, mn))
@@ -454,8 +474,6 @@ elif st.session_state.step == "select_daily":
         with st.sidebar.expander(f"📁 {yr} Yılı", expanded=is_year_expanded):
             for idx, mn in sidebar_groups[yr]:
                 month_name = MONTH_NAMES.get(int(mn), mn)
-                
-                # Ayın günleri kontrol edilerek tamamlama ikonu ayarlanır
                 month_dates_list = [d for d in dates if d.endswith(f"{mn}.{yr}")]
                 is_month_complete = all(d in st.session_state.selected_jobs for d in month_dates_list)
                 status_icon = "🟢" if is_month_complete else "⚪"
@@ -477,7 +495,7 @@ elif st.session_state.step == "select_daily":
     st.progress(progress)
     st.subheader(f"Dönem: {MONTH_NAMES.get(int(active_month), active_month)} {active_year}")
     
-    st.info("⌨️ **Ultra Hızlı Klavye Kısayolları:** Aynı gün içerisindeki işler arasında gezinmek için **Aşağı/Yukarı Ok** tuşlarını kullanın. Seçimi onaylayıp bir sonraki güne zıplamak için **Enter** tuşuna basın. Ay sonuna ulaştığınızda Enter'a basarak otomatik olarak kaydedebilirsiniz.")
+    st.info("⌨️ **Klavye Navigasyonu:** İş seçimleri arasında gezinmek için **Aşağı/Yukarı Ok** tuşlarını kullanın. Seçimi sabitleyip bir alt güne otomatik kaymak için **Enter** tuşuna basın.")
     
     # TOPLU FORM YAPISI (0ms RERUN GECİKMESİ İÇİN)
     with st.form(key=f"month_form_{active_year}_{active_month}"):
@@ -490,7 +508,6 @@ elif st.session_state.step == "select_daily":
                 label = f"W/O: {row['wo']} | Ref: {row['ref']} | Süre: {row['duration']} | Tanım: {row['description']}"
                 options[row['row_idx']] = label
                 
-            # Önceden seçilmiş bir değer var mı kontrol et
             default_val = list(options.keys())[0]
             if d_str in st.session_state.selected_jobs:
                 default_val = st.session_state.selected_jobs[d_str]
@@ -512,7 +529,7 @@ elif st.session_state.step == "select_daily":
         submitted = st.form_submit_button(submit_label, use_container_width=True, type="primary")
         
         if submitted:
-            # Form içindeki tüm seçimleri session_state'e kaydet
+            # Seçimleri kaydet
             for d_str, r_idx in form_selections.items():
                 st.session_state.selected_jobs[d_str] = r_idx
                 
@@ -522,7 +539,6 @@ elif st.session_state.step == "select_daily":
                 st.session_state.current_month_idx += 1
             st.rerun()
 
-    # Form dışı Navigasyon (Geri dönüş butonu)
     if current_month_idx > 0:
         if st.button("⬅️ Önceki Aya Geri Dön", use_container_width=True):
             st.session_state.current_month_idx -= 1
@@ -541,7 +557,7 @@ elif st.session_state.step == "select_samples":
     selected_df = selected_df.sort_values('temp_sort_date')
     
     st.write(f"Toplam **{len(selected_df)}** gün/iş kronolojik olarak filtrelendi.")
-    st.info("Örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
+    st.info("Otoriteye örnek olarak gösterilecek (sarıya boyanacak) işleri sol taraftaki kutucuklardan seçin.")
     
     selected_df['Sarı Boya (Örnek İş)'] = False
     
@@ -580,6 +596,7 @@ elif st.session_state.step == "select_samples":
 elif st.session_state.step == "download":
     st.title("🏆 Raporunuz Hazır!")
     
+    # --- JAVASCRIPT: GERÇEK UÇAK RESMİ İLE SAĞDAN SOLA UÇUŞ ANİMASYONU ---
     if plane_base64:
         plane_html = f'<img class="thy-plane-img" src="{plane_base64}">'
         plane_css = """
@@ -635,7 +652,7 @@ elif st.session_state.step == "download":
     st.download_button(
         label="📥 Düzenlenmiş Excel Dosyasını İndir (.xlsx)",
         data=st.session_state.final_excel,
-        file_name=st.session_state.original_filename, # Yüklenen dosyanın orjinal adı ile indirilir.
+        file_name=st.session_state.original_filename, # Yüklenen dosyanın orijinal adı ile indirilir.
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )

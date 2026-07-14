@@ -579,7 +579,7 @@ elif st.session_state.step == "select_daily":
     st.progress(progress)
     st.subheader(f"Dönem: {MONTH_NAMES.get(int(active_month), active_month)} {active_year}")
     
-    st.info("⌨️ **Klavye Navigasyonu:** İş seçimleri arasında gezinmek için **Aşağı/Yukarı Ok** tuşlarını kullanın. Seçimi yapıp bir alt güne kaymak için **Enter** tuşuna basın.")
+    st.info("⌨️ **İş seçimleri arasında gezinmek için **Aşağı/Yukarı Ok** tuşlarını kullanın. Seçimi yapıp bir alt güne kaymak için **Enter** tuşuna basın.")
     
     with st.form(key=f"month_form_{active_year}_{active_month}"):
         form_selections = {}

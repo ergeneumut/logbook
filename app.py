@@ -10,7 +10,7 @@ import streamlit.components.v1 as components
 from collections import defaultdict
 
 # Sayfa Yapılandırması
-st.set_page_config(page_title="Hızlı Logbook Otomasyonu", layout="wide")
+st.set_page_config(page_title="Logbook Otomasyonu", layout="wide")
 
 # Görselleri Base64 formatına çeviren yardımcı fonksiyon
 def get_base64_image(file_path):

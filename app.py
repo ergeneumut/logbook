@@ -727,7 +727,7 @@ elif st.session_state.step == "download":
     </script>
     """, height=0)
 
-    st.success("Tebrikler! Seçtiğin ayarlara ve temizlik filtrelerine göre dosya başarıyla oluşturuldu. Şimdi kahve molası :)")
+    st.success("Tebrikler! Seçtiğin ayarlara ve temizlik filtrelerine göre dosya başarıyla oluşturuldu. Tabloyu ve içeriklerin doğruluğunu mutlaka kontrol ediniz.Şimdi kahve molası :)")
     
     st.download_button(
         label="📥 Düzenlenmiş Excel Dosyasını İndir",

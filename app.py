@@ -675,7 +675,7 @@ elif st.session_state.step == "select_samples":
 
 # ----------------- ADIM 6: İNDİRME EKRANI -----------------
 elif st.session_state.step == "download":
-    st.title("🏆 Raporunuz Hazır!")
+    st.title("🏆 Raporunuz Hazır! Dosyayı indirip kontrol ediniz!")
     
     if plane_base64:
         plane_html = f'<img class="thy-plane-img" src="{plane_base64}">'

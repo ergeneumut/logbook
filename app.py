@@ -24,7 +24,7 @@ def get_base64_image(file_path):
 
 # Görselleri klasörden oku
 plane_base64 = get_base64_image("plane.jpg")
-hangar_base64 = get_base64_image("background.jpg")
+hangar_base64 = get_base64_image("pngtree-free-hd-wallpaper-4k-new-background-picture-image_15546678.jpg")
 
 # CSS Temalandırma
 bg_css = ""
